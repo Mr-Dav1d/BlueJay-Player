@@ -1,21 +1,37 @@
-## Pre-requisites & Setup Instructions
+### Pre-requisites & Setup Instructions
 
 1. **Clone the Repository**
-   * Run `git clone <repo-url>`
+   ```bash
+   git clone <repo-url>
+   cd BlueJayPlayer
+   ```
 
-2. **Download the Native Playback Engine (Mandatory)**
-   * The `libmpv` binary engine is excluded from source control via `.gitignore`.
-   * Go to the official mpv installation directory (mpv.io/installation) or shinchiro's Windows builds archive.
-   * Download the latest 64-bit **libmpv** architecture zip archive (do not download the standalone mpv.exe application).
+2. **Download the Native Playback Engine**
+   - Go to the official mpv installation directory or shinchiro's Windows builds archive.
+   - Download the latest 64-bit libmpv V2 architecture zip archive (Ensure it is `libmpv-2.dll`, not the standalone player application `mpv.exe`).
 
 3. **Place the Binary in the Workspace**
-   * Extract the zip archive and locate the `libmpv-2.dll` (or `mpv-2.dll`) file.
-   * Create a folder named `Libs` in the root of the project directory if it doesn't exist.
-   * Paste the `.dll` file directly inside the `Libs/` folder so it matches the path: `BlueJayPlayer/Libs/libmpv-2.dll`.
+   - Create a folder named `Libs` in the root of the project directory.
+   - Paste the `libmpv-2.dll` file directly inside that folder: `BlueJayPlayer/Libs/libmpv-2.dll`.
+   - Drop a sample video file named `test.mp4` directly into your main project folder right next to your `.csproj` file.
 
-4. **Restore and Build**
-   * Open your terminal in the project root and run:
-     ```bash
-     dotnet restore
-     dotnet run
-     ```
+4. **Verify Project Deployment Rules**
+   Ensure the bottom of your `BlueJayPlayer.csproj` file includes the deployment directives to copy the files to the executable root directory on compile:
+
+   ```xml
+   <ItemGroup>
+     <None Include="Libs\libmpv-2.dll">
+       <Link>libmpv-2.dll</Link>
+       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+     </None>
+     <None Include="test.mp4">
+       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+     </None>
+   </ItemGroup>
+   ```
+
+5. **Build and Run**
+   ```powershell
+   dotnet build
+   dotnet run
+   ```

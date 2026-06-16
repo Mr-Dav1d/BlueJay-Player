@@ -480,3 +480,8 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Native Engine Binaries and Media
+Libs/
+*.mp4
+*.txt

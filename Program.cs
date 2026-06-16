@@ -1,18 +1,21 @@
-﻿using Avalonia;
-using System;
+﻿using System;
+using Avalonia;
 
 namespace BlueJayPlayer;
 
-sealed class Program
+class Program
 {
-    // Initialization code. Don't use any Avalonia, third-party APIs or any
-    // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
-    // yet and stuff might break.
     [STAThread]
-    public static void Main(string[] args) => BuildAvaloniaApp()
-        .StartWithClassicDesktopLifetime(args);
+    public static void Main(string[] args)
+    {
+        // Explicitly inject our current execution directory into the Windows native DLL look-up path
+        string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+        Environment.SetEnvironmentVariable("PATH", baseDir + ";" + Environment.GetEnvironmentVariable("PATH"));
 
-    // Avalonia configuration, don't remove; also used by visual designer.
+        BuildAvaloniaApp()
+            .StartWithClassicDesktopLifetime(args);
+    }
+
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
