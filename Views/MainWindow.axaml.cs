@@ -1,13 +1,15 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using Avalonia.Controls;
+using Avalonia.Input;
+using BlueJayPlayer.Controls;
 
 namespace BlueJayPlayer.Views;
 
 public partial class MainWindow : Window
 {
-    // Core function signatures imported straight from libmpv-2.dll
     [DllImport("libmpv-2.dll", EntryPoint = "mpv_create", CallingConvention = CallingConvention.Cdecl)]
     private static extern IntPtr MpvCreate();
 
@@ -21,65 +23,103 @@ public partial class MainWindow : Window
     private static extern int MpvSetOptionString(IntPtr handle, byte[] name, byte[] value);
 
     private IntPtr _mpvHandle;
+    private bool _isEngineInitialized = false;
+    private string? _pendingFileToLoad;
 
     public MainWindow()
     {
         InitializeComponent();
-        this.Opened += (s, e) => InitializeRawEngine();
+        
+        // Securely listen for the native Win32 window handle allocation event
+        var videoSurface = this.FindControl<MpvVideoSurface>("VideoSurface");
+        if (videoSurface != null)
+        {
+            videoSurface.HandleReady += InitializeRawEngine;
+        }
+
+        // Setup clean top-level drag and drop handlers
+        var dropPanel = this.FindControl<Panel>("MainDropPanel");
+        if (dropPanel != null)
+        {
+            dropPanel.AddHandler(DragDrop.DragOverEvent, OnDragOver);
+            dropPanel.AddHandler(DragDrop.DropEvent, OnFileDropped);
+        }
     }
 
-    private void InitializeRawEngine()
+    public void QueueStartupFile(string filePath)
     {
-        string logPath = Path.Combine(AppContext.BaseDirectory, "bluejay_debug.log");
-        void Log(string msg) => File.AppendAllText(logPath, $"[{DateTime.Now:HH:mm:ss}] {msg}" + Environment.NewLine);
+        if (_isEngineInitialized)
+        {
+            PlayMediaFile(filePath);
+        }
+        else
+        {
+            _pendingFileToLoad = filePath;
+        }
+    }
+
+    private void InitializeRawEngine(IntPtr hwnd)
+    {
+        if (_isEngineInitialized) return;
 
         try
         {
-            Log("Booting raw native interop engine...");
             _mpvHandle = MpvCreate();
-            
-            if (_mpvHandle == IntPtr.Zero)
-            {
-                Log("CRITICAL: Could not allocate memory handle.");
-                return;
-            }
+            if (_mpvHandle == IntPtr.Zero) return;
 
-            // Standardized way to fetch the native HWND handle on modern Avalonia versions
-            var platformHandle = this.TryGetPlatformHandle();
-            if (platformHandle != null)
-            {
-                long hwnd = platformHandle.Handle.ToInt64();
-                Log($"Acquired native window handle (HWND): {hwnd}");
-
-                // Embed mpv directly into our window container surface
-                SetMpvOptionString(_mpvHandle, "wid", hwnd.ToString());
-            }
-            else
-            {
-                Log("WARNING: Could not resolve Windows native platform handle container.");
-            }
-
-            // Set up diagnostic engine log writing
+            // Bind directly to the safely extracted HWND container handle
+            SetMpvOptionString(_mpvHandle, "wid", hwnd.ToInt64().ToString());
             SetMpvOptionString(_mpvHandle, "log-file", "mpv_engine_log.txt");
             SetMpvOptionString(_mpvHandle, "hwdec", "auto");
 
-            // Initialize engine
             int initResult = MpvInitialize(_mpvHandle);
-            Log($"Engine initialization code returned: {initResult}");
 
             if (initResult == 0)
             {
-                Log("Native player engine connected. Sending loadfile command...");
-                
-                // Fire off playback command strings safely
-                SendCommand(_mpvHandle, "loadfile", "test.mp4");
-                Log("Playback command sent!");
+                _isEngineInitialized = true;
+
+                if (!string.IsNullOrEmpty(_pendingFileToLoad))
+                {
+                    PlayMediaFile(_pendingFileToLoad);
+                }
+                else if (File.Exists(Path.Combine(AppContext.BaseDirectory, "test.mp4")))
+                {
+                    PlayMediaFile(Path.Combine(AppContext.BaseDirectory, "test.mp4"));
+                }
             }
         }
-        catch (Exception ex)
+        catch (Exception) { }
+    }
+
+    private void PlayMediaFile(string filePath)
+    {
+        if (_mpvHandle == IntPtr.Zero || !_isEngineInitialized) return;
+
+        var placeholder = this.FindControl<TextBlock>("PlaceholderText");
+        if (placeholder != null) placeholder.IsVisible = false;
+
+        SendCommand(_mpvHandle, "loadfile", filePath);
+    }
+
+    private void OnDragOver(object? sender, DragEventArgs e)
+    {
+        e.DragEffects = DragDropEffects.Copy;
+        e.Handled = true;
+    }
+
+    private void OnFileDropped(object? sender, DragEventArgs e)
+    {
+        e.Handled = true;
+
+        // Clean, warning-free .NET 9 storage reference extraction API
+        var files = e.DataTransfer.TryGetFiles();
+        if (files != null)
         {
-            Log($"Native Error: {ex.Message}");
-            Log(ex.ToString());
+            var firstFile = files.FirstOrDefault();
+            if (firstFile != null && File.Exists(firstFile.Path.LocalPath))
+            {
+                PlayMediaFile(firstFile.Path.LocalPath);
+            }
         }
     }
 

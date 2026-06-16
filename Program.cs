@@ -8,7 +8,6 @@ class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        // Explicitly inject our current execution directory into the Windows native DLL look-up path
         string baseDir = AppDomain.CurrentDomain.BaseDirectory;
         Environment.SetEnvironmentVariable("PATH", baseDir + ";" + Environment.GetEnvironmentVariable("PATH"));
 

@@ -1,6 +1,7 @@
 ﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:BlueJayPlayer.ViewModels"
+        xmlns:controls="using:BlueJayPlayer.Controls"
         x:Class="BlueJayPlayer.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="BlueJay Player"
@@ -8,10 +9,17 @@
         Height="450"
         Background="Black">
 
-    <Panel Name="PlayerPanel">
-        <TextBlock Text="BlueJay Player Canvas" 
-                   Foreground="White" 
+    <Panel Name="MainDropPanel" 
+           DragDrop.AllowDrop="True"
+           Background="Transparent">
+        
+        <controls:MpvVideoSurface Name="VideoSurface" />
+
+        <TextBlock Name="PlaceholderText"
+                   Text="Drop a video file here to play" 
+                   Foreground="#444444" 
                    HorizontalAlignment="Center" 
-                   VerticalAlignment="Center"/>
+                   VerticalAlignment="Center"
+                   IsHitTestVisible="False"/>
     </Panel>
 </Window>
