@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using Avalonia.Controls;
 using Avalonia.Input;
 using BlueJayPlayer.Controls;
+using Avalonia.Interactivity;
 
 namespace BlueJayPlayer.Views;
 
@@ -16,35 +17,39 @@ public partial class MainWindow : Window
     [DllImport("libmpv-2.dll", EntryPoint = "mpv_initialize", CallingConvention = CallingConvention.Cdecl)]
     private static extern int MpvInitialize(IntPtr handle);
 
-    [DllImport("libmpv-2.dll", EntryPoint = "mpv_command", CallingConvention = CallingConvention.Cdecl)]
-    private static extern int MpvCommand(IntPtr handle, IntPtr utf8Args);
-
     [DllImport("libmpv-2.dll", EntryPoint = "mpv_set_option_string", CallingConvention = CallingConvention.Cdecl)]
     private static extern int MpvSetOptionString(IntPtr handle, byte[] name, byte[] value);
+
+    [DllImport("libmpv-2.dll", EntryPoint = "mpv_command", CallingConvention = CallingConvention.Cdecl)]
+    private static extern int MpvCommand(IntPtr handle, IntPtr utf8Args);
 
     private IntPtr _mpvHandle;
     private bool _isEngineInitialized = false;
     private string? _pendingFileToLoad;
+    private string _logPath = Path.Combine(AppContext.BaseDirectory, "bluejay_debug.log");
 
     public MainWindow()
     {
         InitializeComponent();
         
-        // Securely listen for the native Win32 window handle allocation event
         var videoSurface = this.FindControl<MpvVideoSurface>("VideoSurface");
         if (videoSurface != null)
         {
             videoSurface.HandleReady += InitializeRawEngine;
         }
 
-        // Setup clean top-level drag and drop handlers
         var dropPanel = this.FindControl<Panel>("MainDropPanel");
         if (dropPanel != null)
         {
             dropPanel.AddHandler(DragDrop.DragOverEvent, OnDragOver);
             dropPanel.AddHandler(DragDrop.DropEvent, OnFileDropped);
         }
+
+        // Change Tunneling to Tunnel
+        this.AddHandler(InputElement.KeyDownEvent, OnWindowKeyDownTunnel, RoutingStrategies.Tunnel);
     }
+
+    private void Log(string msg) => File.AppendAllText(_logPath, $"[{DateTime.Now:HH:mm:ss}] {msg}" + Environment.NewLine);
 
     public void QueueStartupFile(string filePath)
     {
@@ -64,15 +69,15 @@ public partial class MainWindow : Window
 
         try
         {
+            Log("Booting raw native interop engine...");
             _mpvHandle = MpvCreate();
             if (_mpvHandle == IntPtr.Zero) return;
 
-            // Bind directly to the safely extracted HWND container handle
             SetMpvOptionString(_mpvHandle, "wid", hwnd.ToInt64().ToString());
-            SetMpvOptionString(_mpvHandle, "log-file", "mpv_engine_log.txt");
             SetMpvOptionString(_mpvHandle, "hwdec", "auto");
 
             int initResult = MpvInitialize(_mpvHandle);
+            Log($"Engine initialization code returned: {initResult}");
 
             if (initResult == 0)
             {
@@ -88,7 +93,7 @@ public partial class MainWindow : Window
                 }
             }
         }
-        catch (Exception) { }
+        catch (Exception ex) { Log($"Initialization Fatal: {ex.Message}"); }
     }
 
     private void PlayMediaFile(string filePath)
@@ -98,7 +103,57 @@ public partial class MainWindow : Window
         var placeholder = this.FindControl<TextBlock>("PlaceholderText");
         if (placeholder != null) placeholder.IsVisible = false;
 
+        Log($"Sending loadfile command for: {filePath}");
         SendCommand(_mpvHandle, "loadfile", filePath);
+    }
+
+    private void OnWindowKeyDownTunnel(object? sender, KeyEventArgs e)
+    {
+        if (!_isEngineInitialized || _mpvHandle == IntPtr.Zero) return;
+
+        // Handle Fullscreen natively in Avalonia to bypass unmanaged Win32 window containment rules
+        if (e.Key == Key.F)
+        {
+            e.Handled = true;
+            Log($"Toggling UI WindowState from: {this.WindowState}");
+            
+            if (this.WindowState == WindowState.FullScreen)
+            {
+                this.WindowState = WindowState.Normal;
+                this.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            }
+            else
+            {
+                this.WindowState = WindowState.FullScreen;
+            }
+            return;
+        }
+
+        // Map the remaining physical playback controls directly to low-level mpv actions
+        (string command, string? argument) = e.Key switch
+        {
+            Key.Space => ("cycle", "pause"),
+            Key.Right => ("seek", "5"),
+            Key.Left  => ("seek", "-5"),
+            Key.Up    => ("add", "volume 2"),
+            Key.Down  => ("add", "volume -2"),
+            _         => (string.Empty, null)
+        };
+
+        if (!string.IsNullOrEmpty(command))
+        {
+            e.Handled = true; // Mark the input event consumed completely
+            Log($"Executing native action directly for {e.Key}: {command} {argument}");
+            
+            if (argument != null)
+            {
+                SendCommand(_mpvHandle, command, argument);
+            }
+            else
+            {
+                SendCommand(_mpvHandle, command);
+            }
+        }
     }
 
     private void OnDragOver(object? sender, DragEventArgs e)
@@ -111,7 +166,6 @@ public partial class MainWindow : Window
     {
         e.Handled = true;
 
-        // Clean, warning-free .NET 9 storage reference extraction API
         var files = e.DataTransfer.TryGetFiles();
         if (files != null)
         {
