@@ -16,7 +16,7 @@
    - Drop a sample video file named `test.mp4` directly into your main project folder right next to your `.csproj` file.
 
 4. **Verify Project Deployment Rules**
-   Ensure the bottom of your `BlueJayPlayer.csproj` file includes the deployment directives to copy the files to the executable root directory on compile:
+   Ensure the bottom of your `BlueJayPlayer.csproj` file includes the deployment directives to copy the native library, test media, and player configurations to the executable root directory on compile:
 
    ```xml
    <ItemGroup>
@@ -24,6 +24,11 @@
        <Link>libmpv-2.dll</Link>
        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
      </None>
+     
+     <None Update="input.conf">
+       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+     </None>
+     
      <None Include="test.mp4">
        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
      </None>
