@@ -1,25 +1,461 @@
 ﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:BlueJayPlayer.ViewModels"
+        xmlns:primitives="using:Avalonia.Controls.Primitives"
         xmlns:controls="using:BlueJayPlayer.Controls"
         x:Class="BlueJayPlayer.Views.MainWindow"
-        x:DataType="vm:MainWindowViewModel"
         Title="BlueJay Player"
-        Width="800"
-        Height="450"
-        Background="Black">
+        SystemDecorations="None"
+        WindowStartupLocation="CenterScreen"
+        Background="Transparent">
 
-    <Panel Name="MainDropPanel" 
-           DragDrop.AllowDrop="True"
-           Background="Transparent">
-        
-        <controls:MpvVideoSurface Name="VideoSurface" />
+    <Window.Styles>
+        <Style Selector="Slider.playback">
+            <Setter Property="Minimum" Value="0"/>
+            <Setter Property="Maximum" Value="1"/>
+            <Setter Property="Value" Value="0"/>
+            <Setter Property="Height" Value="20"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid Name="SliderContainer" VerticalAlignment="Center" Height="20">
+                        <Border Background="Transparent" VerticalAlignment="Stretch"/>
+                        <Border Height="3" VerticalAlignment="Center" CornerRadius="1.5"
+                                Background="#232328" Margin="8,0"/>
+                        <primitives:Track
+                            Name="PART_Track"
+                            Minimum="{TemplateBinding Minimum}"
+                            Maximum="{TemplateBinding Maximum}"
+                            Value="{TemplateBinding Value, Mode=TwoWay}"
+                            IsDirectionReversed="False"
+                            Orientation="Horizontal"
+                            Margin="8,0">
+                            <primitives:Track.DecreaseButton>
+                                <RepeatButton Name="PART_DecreaseButton"
+                                              Classes="playback-track-decrease"
+                                              Focusable="False"
+                                              IsHitTestVisible="False"/>
+                            </primitives:Track.DecreaseButton>
+                            <primitives:Track.IncreaseButton>
+                                <RepeatButton Name="PART_IncreaseButton"
+                                              Classes="playback-track-increase"
+                                              Focusable="False"
+                                              IsHitTestVisible="False"/>
+                            </primitives:Track.IncreaseButton>
+                            <primitives:Track.Thumb>
+                                <Thumb Name="PART_Thumb" Classes="playback-thumb"/>
+                            </primitives:Track.Thumb>
+                        </primitives:Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </Style>
 
-        <TextBlock Name="PlaceholderText"
-                   Text="Drop a video file here to play" 
-                   Foreground="#444444" 
-                   HorizontalAlignment="Center" 
-                   VerticalAlignment="Center"
-                   IsHitTestVisible="False"/>
-    </Panel>
+        <Style Selector="RepeatButton.playback-track-decrease">
+            <Setter Property="Background">
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+                    <GradientStop Color="#2A7FDE" Offset="0"/>
+                    <GradientStop Color="#4BA3FF" Offset="1"/>
+                </LinearGradientBrush>
+            </Setter>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}"
+                            CornerRadius="1.5,0,0,1.5"
+                            Height="3"
+                            VerticalAlignment="Center"/>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="RepeatButton.playback-track-increase">
+            <Setter Property="Background" Value="#232328"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}"
+                            CornerRadius="0,1.5,1.5,0"
+                            Height="3"
+                            VerticalAlignment="Center"/>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="Thumb.playback-thumb">
+            <Setter Property="Width" Value="20"/>
+            <Setter Property="Height" Value="20"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid Width="20" Height="20">
+                        <Ellipse Name="ThumbGlow" Width="18" Height="18"
+                                 Stroke="#3B9EFF" StrokeThickness="0.5"
+                                 Fill="Transparent" Opacity="0">
+                            <Ellipse.Transitions>
+                                <Transitions>
+                                    <DoubleTransition Property="Opacity" Duration="0:0:0.15"/>
+                                </Transitions>
+                            </Ellipse.Transitions>
+                        </Ellipse>
+                        <Ellipse Width="11" Height="11" Fill="#111116"/>
+                        <Ellipse Name="ThumbRing" Width="11" Height="11"
+                                 Stroke="#3B9EFF" StrokeThickness="1.5" Fill="Transparent">
+                            <Ellipse.Transitions>
+                                <Transitions>
+                                    <DoubleTransition Property="Width" Duration="0:0:0.15"/>
+                                    <DoubleTransition Property="Height" Duration="0:0:0.15"/>
+                                </Transitions>
+                            </Ellipse.Transitions>
+                        </Ellipse>
+                        <Ellipse Name="ThumbCore" Width="5" Height="5" Fill="#4AABFF">
+                            <Ellipse.Transitions>
+                                <Transitions>
+                                    <DoubleTransition Property="Width" Duration="0:0:0.15"/>
+                                    <DoubleTransition Property="Height" Duration="0:0:0.15"/>
+                                </Transitions>
+                            </Ellipse.Transitions>
+                        </Ellipse>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="Thumb.playback-thumb:pointerover /template/ Ellipse#ThumbGlow">
+            <Setter Property="Opacity" Value="0.35"/>
+        </Style>
+        <Style Selector="Thumb.playback-thumb:pointerover /template/ Ellipse#ThumbRing">
+            <Setter Property="Width" Value="13"/>
+            <Setter Property="Height" Value="13"/>
+        </Style>
+        <Style Selector="Thumb.playback-thumb:pointerover /template/ Ellipse#ThumbCore">
+            <Setter Property="Width" Value="7"/>
+            <Setter Property="Height" Value="7"/>
+        </Style>
+        <Style Selector="Thumb.playback-thumb:pressed /template/ Ellipse#ThumbGlow">
+            <Setter Property="Opacity" Value="0.5"/>
+        </Style>
+        <Style Selector="Thumb.playback-thumb:pressed /template/ Ellipse#ThumbRing">
+            <Setter Property="Width" Value="14"/>
+            <Setter Property="Height" Value="14"/>
+            <Setter Property="StrokeThickness" Value="2"/>
+        </Style>
+
+        <Style Selector="Slider.volume-mini">
+            <Setter Property="Minimum" Value="0"/>
+            <Setter Property="Maximum" Value="100"/>
+            <Setter Property="Height" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid VerticalAlignment="Center" Height="14">
+                        <Border Background="Transparent" VerticalAlignment="Stretch"/>
+                        <primitives:Track
+                            Name="PART_Track"
+                            Minimum="{TemplateBinding Minimum}"
+                            Maximum="{TemplateBinding Maximum}"
+                            Value="{TemplateBinding Value, Mode=TwoWay}"
+                            Orientation="Horizontal">
+                            <primitives:Track.DecreaseButton>
+                                <RepeatButton Classes="volume-decrease" Focusable="False" IsHitTestVisible="False"/>
+                            </primitives:Track.DecreaseButton>
+                            <primitives:Track.IncreaseButton>
+                                <RepeatButton Classes="volume-increase" Focusable="False" IsHitTestVisible="False"/>
+                            </primitives:Track.IncreaseButton>
+                            <primitives:Track.Thumb>
+                                <Thumb Classes="volume-thumb"/>
+                            </primitives:Track.Thumb>
+                        </primitives:Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="RepeatButton.volume-decrease">
+            <Setter Property="Background" Value="#3B6FA0"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}" CornerRadius="1,0,0,1" Height="2" VerticalAlignment="Center"/>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="RepeatButton.volume-increase">
+            <Setter Property="Background" Value="#232328"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}" CornerRadius="0,1,1,0" Height="2" VerticalAlignment="Center"/>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Thumb.volume-thumb">
+            <Setter Property="Width" Value="8"/>
+            <Setter Property="Height" Value="8"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Ellipse Width="8" Height="8" Fill="#606066"/>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Thumb.volume-thumb:pointerover /template/ Ellipse">
+            <Setter Property="Fill" Value="#3B9EFF"/>
+        </Style>
+
+        <Style Selector="Button.transport-btn">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="#50505C"/>
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="BtnRoot"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="6"
+                            Width="32" Height="32"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          Content="{TemplateBinding Content}"
+                                          Foreground="{TemplateBinding Foreground}"/>
+                        <Border.Transitions>
+                            <Transitions>
+                                <BrushTransition Property="Background" Duration="0:0:0.12"/>
+                            </Transitions>
+                        </Border.Transitions>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.transport-btn:pointerover /template/ Border#BtnRoot">
+            <Setter Property="Background" Value="#1A1A22"/>
+        </Style>
+        <Style Selector="Button.transport-btn:pressed /template/ Border#BtnRoot">
+            <Setter Property="Background" Value="#242432"/>
+        </Style>
+        <Style Selector="Button.transport-btn:pointerover">
+            <Setter Property="Foreground" Value="#9090A8"/>
+        </Style>
+
+        <Style Selector="Button.transport-btn-primary">
+            <Setter Property="Background" Value="#161620"/>
+            <Setter Property="BorderBrush" Value="#252530"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="Foreground" Value="#BBBBC8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="BtnRoot"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="18"
+                            Width="36" Height="36"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          Content="{TemplateBinding Content}"
+                                          Foreground="{TemplateBinding Foreground}"/>
+                        <Border.Transitions>
+                            <Transitions>
+                                <BrushTransition Property="Background" Duration="0:0:0.12"/>
+                            </Transitions>
+                        </Border.Transitions>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.transport-btn-primary:pointerover /template/ Border#BtnRoot">
+            <Setter Property="Background" Value="#1E1E2C"/>
+            <Setter Property="BorderBrush" Value="#303042"/>
+        </Style>
+        <Style Selector="Button.transport-btn-primary:pressed /template/ Border#BtnRoot">
+            <Setter Property="Background" Value="#28283A"/>
+        </Style>
+    </Window.Styles>
+
+    <Border Name="RootBorder" CornerRadius="8" ClipToBounds="True" Background="#0E0E10" BorderBrush="#1C1C20" BorderThickness="1" DragDrop.AllowDrop="True">
+        <Grid Name="MainRootGrid" RowDefinitions="32,*" Background="Transparent" DragDrop.AllowDrop="True">
+
+            <Border Grid.Row="0" Background="#111114" BorderBrush="#181818" BorderThickness="0,0,0,0.5">
+                <Grid Name="CustomTitleBar" ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0" IsHitTestVisible="False">
+                        <Ellipse Width="5" Height="5" Fill="#3B9EFF" Opacity="0.65" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="B L U E J A Y"
+                                   FontFamily="Consolas"
+                                   FontSize="10"
+                                   Foreground="#555560"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,0,6,0">
+                        <Border Background="#1A1A1E" BorderBrush="#252528" BorderThickness="0.5" CornerRadius="6" Margin="2,4">
+                            <Button Name="MinimizeButton" Content="—" Width="40" Height="24" Background="Transparent" BorderThickness="0" Foreground="#555558" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" FontSize="10" Focusable="False"/>
+                        </Border>
+                        <Border Background="#1A1A1E" BorderBrush="#252528" BorderThickness="0.5" CornerRadius="6" Margin="2,4">
+                            <Button Name="MaximizeButton" Content="▢" Width="40" Height="24" Background="Transparent" BorderThickness="0" Foreground="#555558" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" FontSize="10" Focusable="False"/>
+                        </Border>
+                        <Border Background="#1A1A1E" BorderBrush="#252528" BorderThickness="0.5" CornerRadius="6" Margin="2,4">
+                            <Button Name="CloseButton" Content="✕" Width="40" Height="24" Background="Transparent" BorderThickness="0" Foreground="#555558" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" FontSize="11" Focusable="False"/>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Panel Grid.Row="1" Name="MainDropPanel" Background="Transparent" DragDrop.AllowDrop="True">
+
+                <controls:MpvVideoSurface Name="VideoSurface">
+
+                    <Panel Background="Transparent"
+                           HorizontalAlignment="Stretch"
+                           VerticalAlignment="Stretch">
+
+                        <Border Name="OsdCard" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                Background="#D90E0E12" CornerRadius="10" Padding="16,12"
+                                BorderBrush="#25252E" BorderThickness="0.5"
+                                Opacity="0" IsHitTestVisible="False">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="10" Opacity="0.5" Color="Black" OffsetX="0" OffsetY="4"/>
+                            </Border.Effect>
+                            <Border.Transitions>
+                                <Transitions>
+                                    <DoubleTransition Property="Opacity" Duration="0:0:0.25"/>
+                                </Transitions>
+                            </Border.Transitions>
+                            <Grid>
+                                <Border Height="1" VerticalAlignment="Top" Background="#10FFFFFF"/>
+                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,4,0,0">
+                                    <TextBlock Name="OsdIcon" Text="♪" Foreground="#4AABFF" FontSize="16" FontFamily="Consolas" VerticalAlignment="Center" Margin="0,0,2,0"/>
+                                    <TextBlock Name="OsdText" Text="Volume: 100%" Foreground="#FFFFFF" FontSize="14" FontWeight="Medium" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <TextBlock Name="PlaceholderText" Text="Drop Media File Here"
+                                   Foreground="#606066" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   FontSize="16" IsHitTestVisible="False"/>
+
+                        <Border Name="TransportBar"
+                                VerticalAlignment="Bottom"
+                                Opacity="0"
+                                Padding="20,8,20,12"
+                                BorderThickness="0,1,0,0"
+                                BorderBrush="#1C1C20"
+                                IsHitTestVisible="True"
+                                BoxShadow="0 -8 32 0 #66000000">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                                    <GradientStop Color="#00141416" Offset="0"/>
+                                    <GradientStop Color="#CC141416" Offset="0.5"/>
+                                    <GradientStop Color="#F2141416" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Border.Background>
+                            <Border.Transitions>
+                                <Transitions>
+                                    <DoubleTransition Property="Opacity" Duration="0:0:0.25"/>
+                                </Transitions>
+                            </Border.Transitions>
+
+                            <Grid RowDefinitions="Auto,Auto" RowSpacing="6">
+
+                                <Grid Grid.Row="0" ColumnDefinitions="68,*,68" VerticalAlignment="Center">
+                                    <TextBlock Name="CurrentTimeText"
+                                               Grid.Column="0"
+                                               Text="00:00:00"
+                                               FontFamily="Consolas"
+                                               FontSize="11"
+                                               Foreground="#606066"
+                                               VerticalAlignment="Center"
+                                               LetterSpacing="0.5"/>
+                                    <Slider Name="PlaybackSlider"
+                                            Grid.Column="1"
+                                            Classes="playback"
+                                            Minimum="0"
+                                            Maximum="1"
+                                            Value="0"
+                                            Margin="12,0"
+                                            VerticalAlignment="Center"
+                                            Focusable="False"/>
+                                    <TextBlock Name="TotalDurationText"
+                                               Grid.Column="2"
+                                               Text="00:00:00"
+                                               FontFamily="Consolas"
+                                               FontSize="11"
+                                               Foreground="#606066"
+                                               TextAlignment="Right"
+                                               VerticalAlignment="Center"
+                                               LetterSpacing="0.5"/>
+                                </Grid>
+
+                                <Grid Grid.Row="1"
+                                      ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*"
+                                      VerticalAlignment="Center">
+                                    <Button Name="SkipBackButton"
+                                            Grid.Column="1"
+                                            Classes="transport-btn"
+                                            ToolTip.Tip="Skip back 10s"
+                                            Margin="0,0,4,0">
+                                        <TextBlock Text="⏮" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Button>
+                                    <Button Name="PlayPauseButton"
+                                            Grid.Column="2"
+                                            Classes="transport-btn-primary"
+                                            ToolTip.Tip="Play / Pause"
+                                            Margin="4,0">
+                                        <TextBlock Name="PlayPauseIcon"
+                                                   Text="▶"
+                                                   FontSize="13"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"/>
+                                    </Button>
+                                    <Button Name="SkipForwardButton"
+                                            Grid.Column="3"
+                                            Classes="transport-btn"
+                                            ToolTip.Tip="Skip forward 10s"
+                                            Margin="4,0,0,0">
+                                        <TextBlock Text="⏭" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Button>
+                                    <Border Grid.Column="4" Width="1" Height="16" Background="#28282E" Margin="12,0" VerticalAlignment="Center"/>
+                                    <Button Name="MuteButton"
+                                            Grid.Column="5"
+                                            Classes="transport-btn"
+                                            ToolTip.Tip="Mute">
+                                        <TextBlock Name="VolumeIcon"
+                                                   Text="🔊"
+                                                   FontSize="12"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"/>
+                                    </Button>
+                                    <Slider Name="VolumeSlider"
+                                            Grid.Column="6"
+                                            Classes="volume-mini"
+                                            Minimum="0"
+                                            Maximum="100"
+                                            Value="100"
+                                            Width="72"
+                                            Margin="4,0,12,0"
+                                            VerticalAlignment="Center"
+                                            Focusable="False"/>
+                                    <Button Name="FullscreenButton"
+                                            Grid.Column="7"
+                                            Classes="transport-btn"
+                                            ToolTip.Tip="Toggle fullscreen (F)">
+                                        <TextBlock Text="⛶" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Button>
+                                </Grid>
+                            </Grid>
+                        </Border>
+
+                    </Panel>
+                </controls:MpvVideoSurface>
+
+            </Panel>
+
+        </Grid>
+    </Border>
 </Window>
