@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:primitives="using:Avalonia.Controls.Primitives"
         xmlns:controls="using:BlueJayPlayer.Controls"
+        xmlns:views="using:BlueJayPlayer.Views"
         x:Class="BlueJayPlayer.Views.MainWindow"
         Title="BlueJay Player"
         ExtendClientAreaToDecorationsHint="True"
@@ -12,9 +13,9 @@
 
 
     <Border Name="RootBorder" CornerRadius="8" ClipToBounds="True" Background="#0C0C12" BorderBrush="#1F222F" BorderThickness="1" DragDrop.AllowDrop="True">
-        <Grid Name="MainRootGrid" RowDefinitions="32,*" Background="Transparent" DragDrop.AllowDrop="True">
+        <Grid Name="MainRootGrid" RowDefinitions="32,*" ColumnDefinitions="*,Auto" Background="Transparent" DragDrop.AllowDrop="True">
 
-            <Border Grid.Row="0" Background="#09090D" BorderBrush="#14141A" BorderThickness="0,0,0,0.5">
+            <Border Grid.Row="0" Grid.ColumnSpan="2" Background="#09090D" BorderBrush="#14141A" BorderThickness="0,0,0,0.5">
                 <Grid Name="CustomTitleBar" ColumnDefinitions="*,Auto" Background="Transparent">
                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0" IsHitTestVisible="False">
                         <Ellipse Width="5" Height="5" Fill="#2B88FF" Opacity="0.8" Margin="0,0,8,0" VerticalAlignment="Center"/>
@@ -28,9 +29,52 @@
                 </Grid>
             </Border>
 
-            <Panel Grid.Row="1" Name="MainDropPanel" Background="Transparent" DragDrop.AllowDrop="True">
+            <Panel Grid.Row="1" Grid.Column="0" Name="MainDropPanel" Background="Transparent" DragDrop.AllowDrop="True">
                 <controls:MpvVideoSurface Name="VideoSurface">
                     <Panel Background="Transparent" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+
+                        <!-- Idle Logo Splash (visible when no media is playing) -->
+                        <Panel Name="IdleLogoPanel" Background="#000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" IsHitTestVisible="False">
+                            <Image Source="avares://BlueJayPlayer/Assets/blujay_logo.jpg"
+                                   HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                   Stretch="UniformToFill"/>
+                        </Panel>
+
+                        <!-- Premium Cinematic Dynamic Title Overlay Block -->
+                        <Border Name="VideoTitleOverlay"
+                                VerticalAlignment="Top"
+                                HorizontalAlignment="Left"
+                                Margin="24,20,0,0"
+                                Padding="12,8"
+                                Background="#D90C0C12"
+                                BorderBrush="#1F222F"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                IsHitTestVisible="False"
+                                Opacity="0">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="8" Opacity="0.4" Color="Black" OffsetX="0" OffsetY="3"/>
+                            </Border.Effect>
+                            <Border.Transitions>
+                                <Transitions>
+                                    <DoubleTransition Property="Opacity" Duration="0:0:0.2"/>
+                                </Transitions>
+                            </Border.Transitions>
+                            
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <!-- Accent media dot or minimalist movie icon -->
+                                <Ellipse Width="6" Height="6" Fill="#2B88FF" VerticalAlignment="Center"/>
+                                <TextBlock Name="VideoTitleText" 
+                                           Text="No Media Loaded" 
+                                           FontFamily="Segoe UI" 
+                                           FontSize="12" 
+                                           FontWeight="Medium" 
+                                           Foreground="#C5CEE3" 
+                                           MaxWidth="450"
+                                           TextTrimming="CharacterEllipsis"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
 
                         <Border Name="OsdCard" VerticalAlignment="Center" HorizontalAlignment="Center"
                                 Background="#E60C0C12" CornerRadius="8" Padding="16,12" BorderBrush="#1F222F" BorderThickness="0.5" Opacity="0" IsHitTestVisible="False">
@@ -48,7 +92,43 @@
                             </StackPanel>
                         </Border>
 
-                        <TextBlock Name="PlaceholderText" Text="Drop Media File Here" Foreground="#5C647C" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="15" IsHitTestVisible="False"/>
+                        <!-- Premium Cinematic Stats Overlay Block -->
+                        <Border Name="StatsOverlayCard"
+                                VerticalAlignment="Top"
+                                HorizontalAlignment="Right"
+                                Margin="0,20,24,0"
+                                Padding="16"
+                                Background="#D90C0C12"
+                                BorderBrush="#1F222F"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Width="440"
+                                IsHitTestVisible="False"
+                                Opacity="0">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="12" Opacity="0.5" Color="Black" OffsetX="0" OffsetY="4"/>
+                            </Border.Effect>
+                            <Border.Transitions>
+                                <Transitions>
+                                    <DoubleTransition Property="Opacity" Duration="0:0:0.2"/>
+                                </Transitions>
+                            </Border.Transitions>
+                            <StackPanel Spacing="12">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Text="SYSTEM DIAGNOSTICS" Foreground="#2B88FF" FontSize="10" FontWeight="Bold" LetterSpacing="1.2" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1" Text="STATS" Foreground="#5C647C" FontSize="10" FontFamily="Segoe UI" FontWeight="Bold" VerticalAlignment="Center"/>
+                                </Grid>
+                                <Border Background="#1F222F" Height="1"/>
+                                <TextBlock Name="StatsTextPanel" 
+                                           Text="Loading Telemetry..." 
+                                           FontFamily="Consolas" 
+                                           FontSize="11" 
+                                           Foreground="#C5CEE3" 
+                                           LineHeight="18" 
+                                           TextWrapping="NoWrap"/>
+                            </StackPanel>
+                        </Border>
+
 
                         <!-- Seek Hover Preview Card -->
                         <Border Name="SeekPreviewCard" VerticalAlignment="Bottom" HorizontalAlignment="Left"
@@ -85,7 +165,7 @@
                             </Border.Transitions>
 
                             <Grid RowDefinitions="*">
-                                <Grid Grid.Row="0" Name="SingleLineLayout" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto" VerticalAlignment="Center">
+                                <Grid Grid.Row="0" Name="SingleLineLayout" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" VerticalAlignment="Center">
                                     <Button Grid.Column="0" Name="SinglePlayPauseButton" Classes="transport-btn" ToolTip.Tip="Play / Pause">
                                         <PathIcon Name="SinglePlayPauseIcon" Data="M8 5v14l11-7z" Width="12" Height="12"/>
                                     </Button>
@@ -102,8 +182,12 @@
                                     </Button>
                                     <Slider Grid.Column="4" Name="SingleVolumeSlider" Classes="volume-mini" Width="56" Margin="4,0,12,0" VerticalAlignment="Center" Focusable="False"/>
                                     
-                                    <Button Grid.Column="5" Name="SingleLoopButton" Classes="transport-btn" ToolTip.Tip="Toggle Loop">
-                                        <PathIcon Data="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" Width="12" Height="12"/>
+                                    <Button Grid.Column="5" Name="SingleLoopButton" Classes="transport-btn" ToolTip.Tip="Repeat: Off">
+                                        <Grid>
+                                            <PathIcon Name="SingleLoopIcon" Data="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" Width="12" Height="12"/>
+                                            <TextBlock Name="SingleLoopBadge" Text="1" FontSize="7" FontWeight="Bold" Foreground="#66AFFF" IsVisible="False"
+                                                       HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-4,-3"/>
+                                        </Grid>
                                     </Button>
                                     <Button Grid.Column="6" Name="SingleAudioButton" Classes="transport-btn" ToolTip.Tip="Audio Tracks">
                                         <PathIcon Data="M12 2c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7c0-4.97-4.03-9-9-9z" Width="12" Height="12"/>
@@ -122,6 +206,9 @@
                                     </Button>
                                     <Button Grid.Column="9" Name="SingleFullscreenButton" Classes="transport-btn" ToolTip.Tip="Toggle Fullscreen (F)">
                                         <PathIcon Data="M5 5h5v2H7v3H5V5zm14 0h-5v2h3v3h2V5zM5 19h5v-2H7v-3H5v5zm14 0h-5v-2h3v-3h2v5z" Width="12" Height="12"/>
+                                    </Button>
+                                    <Button Grid.Column="10" Name="SingleSidePanelButton" Classes="transport-btn" ToolTip.Tip="Toggle Side Panel">
+                                        <PathIcon Data="M3 4h18v2H3V4zm0 5h18v2H3V9zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" Width="12" Height="12"/>
                                     </Button>
                                 </Grid>
 
@@ -154,8 +241,12 @@
                                         </StackPanel>
 
                                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
-                                            <Button Name="DeckLoopButton" Classes="transport-btn" ToolTip.Tip="Toggle Loop">
-                                                <PathIcon Data="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" Width="12" Height="12"/>
+                                            <Button Name="DeckLoopButton" Classes="transport-btn" ToolTip.Tip="Repeat: Off">
+                                                <Grid>
+                                                    <PathIcon Name="DeckLoopIcon" Data="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" Width="12" Height="12"/>
+                                                    <TextBlock Name="DeckLoopBadge" Text="1" FontSize="7" FontWeight="Bold" Foreground="#66AFFF" IsVisible="False"
+                                                               HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-4,-3"/>
+                                                </Grid>
                                             </Button>
                                             <Button Name="DeckAudioButton" Classes="transport-btn" ToolTip.Tip="Audio Tracks">
                                                 <PathIcon Data="M12 2c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7c0-4.97-4.03-9-9-9z" Width="12" Height="12"/>
@@ -175,6 +266,9 @@
                                             <Button Name="DeckFullscreenButton" Classes="transport-btn" ToolTip.Tip="Toggle Fullscreen (F)">
                                                 <PathIcon Data="M5 5h5v2H7v3H5V5zm14 0h-5v2h3v3h2V5zM5 19h5v-2H7v-3H5v5zm14 0h-5v-2h3v-3h2v5z" Width="12" Height="12"/>
                                             </Button>
+                                            <Button Name="DeckSidePanelButton" Classes="transport-btn" ToolTip.Tip="Toggle Side Panel">
+                                                <PathIcon Data="M3 4h18v2H3V4zm0 5h18v2H3V9zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" Width="12" Height="12"/>
+                                            </Button>
                                         </StackPanel>
                                     </Grid>
                                 </Grid>
@@ -192,8 +286,150 @@
                     </Panel>
                 </controls:MpvVideoSurface>
             </Panel>
-            
-            <Grid Grid.Row="0" Grid.RowSpan="2" Name="ResizeGrid" ColumnDefinitions="6,*,6" RowDefinitions="6,*,6" IsHitTestVisible="True">
+
+            <!-- Dynamic Side Panel (Sliding Drawer) -->
+            <Border Grid.Row="1" Grid.Column="1" Name="DynamicSidePanel" Width="0" Background="#0C0C12" BorderBrush="#1F222F" BorderThickness="1,0,0,0">
+                <Border.Transitions>
+                    <Transitions>
+                        <DoubleTransition Property="Width" Duration="0:0:0.3" Easing="CubicEaseOut"/>
+                    </Transitions>
+                </Border.Transitions>
+                <!-- Drawer content: segmented header, tab panels -->
+                <Grid RowDefinitions="Auto,*" Margin="12">
+                    <!-- Segmented Header -->
+                    <Border Grid.Row="0" Background="#07070A" CornerRadius="6" BorderBrush="#1F222F" BorderThickness="1" Padding="2" Height="36" Margin="0,0,0,12">
+                        <Grid ColumnDefinitions="*,*">
+                            <!-- Sliding backplate for active tab -->
+                            <Border Name="QueueTabIndicator" Grid.Column="0" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="True"/>
+                            <Border Name="DirectoryTabIndicator" Grid.Column="1" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="False"/>
+                            
+                            <Button Grid.Column="0" Name="QueueTabButton" Classes="tab-btn active" Content="Queue"/>
+                            <Button Grid.Column="1" Name="DirectoryTabButton" Classes="tab-btn" Content="Directory"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Content Area -->
+                    <Grid Grid.Row="1">
+                        <!-- Queue Panel -->
+                        <Grid Name="QueuePanel" RowDefinitions="Auto,*" IsVisible="True" DragDrop.AllowDrop="True">
+                            <!-- Queue Toolbar -->
+                            <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,10" Height="24">
+                                <TextBlock Text="PLAYBACK QUEUE" Foreground="#5C647C" FontSize="10" FontWeight="Bold" LetterSpacing="0.8" VerticalAlignment="Center"/>
+                                <Button Grid.Column="1" Name="ShuffleButton" Classes="action-btn" ToolTip.Tip="Toggle Shuffle" Margin="0,0,6,0" Focusable="False">
+                                    <PathIcon Data="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 18 7.41 20.04 9.45V4h-5.54zm.93 9.93l-1.41 1.41 3.56 3.56L20.04 20h-5.54v-5.45l2.04-2.04-1.11-1.08z" Width="10" Height="10"/>
+                                </Button>
+                                <Button Grid.Column="2" Name="ClearQueueButton" Classes="action-btn" ToolTip.Tip="Clear Queue" Focusable="False">
+                                    <PathIcon Data="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" Width="10" Height="10"/>
+                                </Button>
+                            </Grid>
+                            <ListBox Grid.Row="1" Name="QueueListBox" Background="Transparent" BorderThickness="0" Margin="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListBox.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <VirtualizingStackPanel/>
+                                    </ItemsPanelTemplate>
+                                </ListBox.ItemsPanel>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="views:QueueItemViewModel">
+                                        <Grid ColumnDefinitions="*,Auto" Height="40" Margin="0,1">
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Name}" Foreground="{Binding ForegroundBrush}" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding FullPath}" Foreground="{Binding PathForegroundBrush}" FontSize="9" FontFamily="Consolas" TextTrimming="CharacterEllipsis"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding DurationText}" Foreground="#5C647C" FontSize="10" FontFamily="Consolas" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <StackPanel Classes="row-actions" VerticalAlignment="Center">
+                                                    <Button Name="RemoveQueueButton" Classes="action-btn" ToolTip.Tip="Remove from Queue" CommandParameter="{Binding FullPath}">
+                                                        <PathIcon Data="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" Width="10" Height="10"/>
+                                                    </Button>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            <!-- Empty Queue visual indicator -->
+                            <StackPanel Name="QueuePlaceholderText" Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="24" Spacing="12" IsHitTestVisible="False">
+                                <PathIcon Data="M19 13H5v-2h14v2z" Width="20" Height="20" Foreground="#232635" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Queue is Empty" Foreground="#5C647C" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Drag &amp; drop media files here or add them from the directory tab." Foreground="#3E4456" FontSize="10" TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Directory Panel -->
+                        <Grid Name="DirectoryPanel" RowDefinitions="Auto,*,Auto" IsVisible="False">
+                            <!-- Breadcrumb & Up Button Header -->
+                            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+                                <TextBox Grid.Column="0" Name="BreadcrumbText" Text="Current Folder" Foreground="#8A92AD" FontSize="10" FontFamily="Consolas" VerticalAlignment="Center"
+                                         Background="#0A0A10" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="4" Padding="6,3"
+                                         CaretBrush="#5B8DEF" SelectionBrush="#5B8DEF" SelectionForegroundBrush="#FFFFFF"/>
+                                <Button Grid.Column="1" Name="UpDirectoryButton" Classes="page-btn" Content="⬆ Up" FontSize="10"/>
+                            </Grid>
+
+                            <!-- Directory Files List -->
+                            <ListBox Grid.Row="1" Name="DirectoryListBox" Background="Transparent" BorderThickness="0" Margin="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListBox.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <VirtualizingStackPanel/>
+                                    </ItemsPanelTemplate>
+                                </ListBox.ItemsPanel>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="views:MediaItemViewModel">
+                                        <Grid ColumnDefinitions="Auto,*,Auto" Height="50" Margin="0,2">
+                                            <!-- Thumbnail or Folder Icon -->
+                                            <Border Grid.Column="0" Width="80" Height="45" Background="#09090D" CornerRadius="4" BorderBrush="#1F222F" BorderThickness="0.5" ClipToBounds="True">
+                                                <Panel>
+                                                    <!-- Folder Icon (if directory) -->
+                                                    <PathIcon Data="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z" Width="20" Height="20" Foreground="#2B88FF" IsVisible="{Binding IsDirectory}"/>
+                                                    <!-- Video Thumbnail (if file) -->
+                                                    <Panel IsVisible="{Binding !IsDirectory}">
+                                                        <!-- Pulsing placeholder border when thumbnail is not loaded -->
+                                                        <Border Background="#14141A" Classes="pulse" IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNull}}"/>
+                                                        <!-- Loaded image -->
+                                                        <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                                    </Panel>
+                                                </Panel>
+                                            </Border>
+
+                                            <!-- Metadata details -->
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0,0,0">
+                                                <TextBlock Text="{Binding Name}" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                <!-- Metadata size / duration for files, or <Folder> for folders -->
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <TextBlock Text="Folder" Foreground="#5C647C" FontSize="10" FontFamily="Consolas" IsVisible="{Binding IsDirectory}"/>
+                                                    <TextBlock Text="{Binding SizeText}" Foreground="#5C647C" FontSize="10" FontFamily="Consolas" IsVisible="{Binding !IsDirectory}"/>
+                                                    <TextBlock Text="•" Foreground="#1F222F" FontSize="10" IsVisible="{Binding !IsDirectory}"/>
+                                                    <TextBlock Text="{Binding DurationText}" Foreground="#5C647C" FontSize="10" FontFamily="Consolas" IsVisible="{Binding !IsDirectory}"/>
+                                                </StackPanel>
+                                            </StackPanel>
+
+                                            <!-- Row Hover Action Buttons -->
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Classes="row-actions">
+                                                <Button Name="PlayActionButton" Classes="action-btn" ToolTip.Tip="Play Immediately" IsVisible="{Binding !IsDirectory}">
+                                                    <PathIcon Data="M8 5v14l11-7z" Width="10" Height="10"/>
+                                                </Button>
+                                                <Button Name="EnqueueActionButton" Classes="action-btn" ToolTip.Tip="Add to Queue" IsVisible="{Binding !IsDirectory}">
+                                                    <PathIcon Data="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" Width="10" Height="10"/>
+                                                </Button>
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+
+                            <!-- Bottom Pagination Control Bar -->
+                            <Border Grid.Row="2" Background="Transparent" BorderBrush="#14141A" BorderThickness="0,1,0,0" Padding="0,12,0,0" Margin="0,4,0,0">
+                                <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+                                    <Button Grid.Column="0" Name="PrevPageButton" Classes="page-btn" Content="◀ Prev" FontSize="10"/>
+                                    <TextBlock Grid.Column="1" Name="PageNumberText" Text="Page 1 / 1" FontFamily="Consolas" FontSize="10" FontWeight="SemiBold" Foreground="#C5CEE3" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <Button Grid.Column="2" Name="NextPageButton" Classes="page-btn" Content="Next ▶" FontSize="10"/>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="0" Grid.RowSpan="2" Grid.ColumnSpan="2" Name="ResizeGrid" ColumnDefinitions="6,*,6" RowDefinitions="6,*,6" IsHitTestVisible="True">
                 <Border Grid.Row="0" Grid.Column="0" Background="Transparent" Cursor="TopLeftCorner" Tag="NorthWest" PointerPressed="OnResizePointerPressed"/>
                 <Border Grid.Row="0" Grid.Column="1" Background="Transparent" Cursor="TopSide" Tag="North" PointerPressed="OnResizePointerPressed"/>
                 <Border Grid.Row="0" Grid.Column="2" Background="Transparent" Cursor="TopRightCorner" Tag="NorthEast" PointerPressed="OnResizePointerPressed"/>

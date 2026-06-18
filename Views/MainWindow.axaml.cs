@@ -71,6 +71,13 @@ public partial class MainWindow : Window
         public IntPtr Data;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MpvEventEndFile
+    {
+        public int Reason;
+        public int Error;
+    }
+
     private IntPtr _mpvHandle;
     private IntPtr _cachedHwnd = IntPtr.Zero;
     private bool _isEngineInitialized = false;
@@ -84,6 +91,14 @@ public partial class MainWindow : Window
 
     // Greenfield Transport Control Fields
     private Border? _transportBar;
+    private Border? _videoTitleOverlay;
+    private TextBlock? _videoTitleText;
+
+    // Greenfield Stats Overlay Fields
+    private Border? _statsOverlayCard;
+    private TextBlock? _statsTextPanel;
+    private System.Threading.CancellationTokenSource? _statsCts;
+    private bool _isStatsSticky;
     private TextBlock[] _currentTimeTexts = Array.Empty<TextBlock>();
     private TextBlock[] _totalDurationTexts = Array.Empty<TextBlock>();
     private Slider[] _playbackSliders = Array.Empty<Slider>();
@@ -100,7 +115,12 @@ public partial class MainWindow : Window
     private Button? _deckModeSwitchButton;
 
     // Phase 2 loop, audio, and subtitle selectors
-    private bool _isLooping = false;
+    // Loop mode: 0 = Off (play next in queue), 1 = Loop Queue, 2 = Loop Current Track
+    private int _loopMode = 0;
+    private int _currentQueueIndex = -1;
+    private bool _isPlayingFromQueue = false;
+    private Button? _shuffleButton;
+    private bool _isShuffleEnabled = false;
     private Button[] _loopButtons = Array.Empty<Button>();
     private Button[] _audioButtons = Array.Empty<Button>();
     private Button[] _subtitleButtons = Array.Empty<Button>();
@@ -114,6 +134,7 @@ public partial class MainWindow : Window
     private MpvVideoSurface? _videoSurface;
     private Grid? _resizeGrid;
     private Grid? _overlayResizeGrid;
+    private Panel? _idleLogoPanel;
 
     private static readonly string PlaySvg = "M8 5v14l11-7z";
     private static readonly string PauseSvg = "M6 19h4V5H6v14zm8-14v14h4V5h-4z";
@@ -136,10 +157,66 @@ public partial class MainWindow : Window
     private Control? _hudPanel;
     private Border? _seekPreviewCard;
 
+    // Phase 3 state fields
+    private System.Collections.ObjectModel.ObservableCollection<QueueItemViewModel> _playbackQueueItems = new();
+    private System.Collections.ObjectModel.ObservableCollection<MediaItemViewModel> _directoryItems = new();
+    private System.Collections.Generic.List<FileSystemInfo> _allEntries = new();
+    private string _currentDirectoryPath = "";
+    private int _currentPageIndex = 1;
+    private int _totalPageCount = 1;
+    private string _activeTab = "Queue";
+    private const int ItemsPerPage = 10;
+    private System.Threading.CancellationTokenSource? _lazyLoadCts;
+
+    // Phase 3 Control References
+    private Border? _dynamicSidePanel;
+    private Button? _queueTabButton;
+    private Button? _directoryTabButton;
+    private Border? _queueTabIndicator;
+    private Border? _directoryTabIndicator;
+    private Panel? _queuePanel;
+    private Panel? _directoryPanel;
+    private ListBox? _queueListBox;
+    private StackPanel? _queuePlaceholderText;
+    private TextBox? _breadcrumbText;
+    private Button? _upDirectoryButton;
+    private ListBox? _directoryListBox;
+    private Button? _prevPageButton;
+    private TextBlock? _pageNumberText;
+    private Button? _nextPageButton;
+    private Button[] _sidePanelButtons = Array.Empty<Button>();
+
     public MainWindow()
     {
         // InitializeComponent runs first to build the visual context tree from XAML
         InitializeComponent();
+
+        // Set BlueJay window icon from embedded asset
+        try
+        {
+            using var iconStream = Avalonia.Platform.AssetLoader.Open(new Uri("avares://BlueJayPlayer/Assets/blujay_logo.jpg"));
+            this.Icon = new WindowIcon(iconStream);
+        }
+        catch { /* Icon load failed gracefully */ }
+
+        // Phase 3 Control Resolution
+        _dynamicSidePanel = this.FindControl<Border>("DynamicSidePanel");
+        _queueTabButton = this.FindControl<Button>("QueueTabButton");
+        _directoryTabButton = this.FindControl<Button>("DirectoryTabButton");
+        _queueTabIndicator = this.FindControl<Border>("QueueTabIndicator");
+        _directoryTabIndicator = this.FindControl<Border>("DirectoryTabIndicator");
+        _queuePanel = this.FindControl<Panel>("QueuePanel");
+        _directoryPanel = this.FindControl<Panel>("DirectoryPanel");
+        _queueListBox = this.FindControl<ListBox>("QueueListBox");
+        _queuePlaceholderText = this.FindControl<StackPanel>("QueuePlaceholderText");
+        _breadcrumbText = this.FindControl<TextBox>("BreadcrumbText");
+        _upDirectoryButton = this.FindControl<Button>("UpDirectoryButton");
+        _directoryListBox = this.FindControl<ListBox>("DirectoryListBox");
+        _prevPageButton = this.FindControl<Button>("PrevPageButton");
+        _pageNumberText = this.FindControl<TextBlock>("PageNumberText");
+        _nextPageButton = this.FindControl<Button>("NextPageButton");
+
+        SetupSidePanel();
         
         // Cache Root Layout References safely now that the components are inflated
         _mainRootGrid = this.FindControl<Grid>("MainRootGrid");
@@ -311,11 +388,21 @@ public partial class MainWindow : Window
         _osdIcon           = FindInTree<TextBlock>(hudPanel, "OsdIcon");
         _osdText           = FindInTree<TextBlock>(hudPanel, "OsdText");
         _seekPreviewCard   = FindInTree<Border>(hudPanel, "SeekPreviewCard");
+        _idleLogoPanel     = FindInTree<Panel>(hudPanel, "IdleLogoPanel");
+        _videoTitleOverlay = FindInTree<Border>(hudPanel, "VideoTitleOverlay");
+        _videoTitleText    = FindInTree<TextBlock>(hudPanel, "VideoTitleText");
+
+        _statsOverlayCard        = FindInTree<Border>(hudPanel, "StatsOverlayCard");
+        _statsTextPanel          = FindInTree<TextBlock>(hudPanel, "StatsTextPanel");
         _overlayResizeGrid = FindInTree<Grid>(hudPanel, "OverlayResizeGrid");
         if (_overlayResizeGrid != null)
         {
             _overlayResizeGrid.IsVisible = this.WindowState == WindowState.Normal;
         }
+
+        var singleSidePanelBtn = FindInTree<Button>(hudPanel, "SingleSidePanelButton");
+        var deckSidePanelBtn = FindInTree<Button>(hudPanel, "DeckSidePanelButton");
+        _sidePanelButtons = new Button[] { singleSidePanelBtn!, deckSidePanelBtn! }.Where(x => x != null).ToArray();
 
         Log($"ResolveTransportControls: sliders={_playbackSliders.Length}, " +
             $"timeTexts={_currentTimeTexts.Length}, durTexts={_totalDurationTexts.Length}, " +
@@ -488,6 +575,11 @@ public partial class MainWindow : Window
         // Pre-populate dropdown menus immediately on startup
         PopulateAudioTracks();
         PopulateSubtitleTracks();
+
+        foreach (var btn in _sidePanelButtons)
+        {
+            btn.Click += (s, e) => ToggleSidePanel();
+        }
     }
 
     protected override void OnOpened(EventArgs e)
@@ -576,10 +668,7 @@ public partial class MainWindow : Window
                 {
                     PlayMediaFile(_pendingFileToLoad);
                 }
-                else if (File.Exists(Path.Combine(AppContext.BaseDirectory, "test.mp4")))
-                {
-                    PlayMediaFile(Path.Combine(AppContext.BaseDirectory, "test.mp4"));
-                }
+                // No default auto-play — show idle logo instead
             }
         }
         catch (Exception ex) { Log($"Initialization Fatal: {ex.Message}"); }
@@ -598,7 +687,22 @@ public partial class MainWindow : Window
 
             if (mpvEvent.EventId == 0) continue;
 
-            if (mpvEvent.EventId == 22) // MPV_EVENT_PROPERTY_CHANGE
+            if (mpvEvent.EventId == 7) // MPV_EVENT_END_FILE
+            {
+                if (mpvEvent.Data != IntPtr.Zero)
+                {
+                    var endFileEvent = Marshal.PtrToStructure<MpvEventEndFile>(mpvEvent.Data);
+                    Log($"RunEventLoop: MPV_EVENT_END_FILE received. Reason: {endFileEvent.Reason}, Error: {endFileEvent.Error}");
+                    
+                    // Reason 0 = MPV_END_FILE_REASON_EOF (ended naturally)
+                    if (endFileEvent.Reason == 0)
+                    {
+                        Log("RunEventLoop: Video completed naturally. Advancing queue.");
+                        PlayNextInQueue();
+                    }
+                }
+            }
+            else if (mpvEvent.EventId == 22) // MPV_EVENT_PROPERTY_CHANGE
             {
                 if (mpvEvent.Data == IntPtr.Zero) continue;
 
@@ -705,18 +809,47 @@ public partial class MainWindow : Window
     {
         if (_mpvHandle == IntPtr.Zero || !_isEngineInitialized) return;
 
-        _isLooping = !_isLooping;
-        SendCommand(_mpvHandle, "cycle", "loop-file");
-        Log($"Looping state toggled: {_isLooping}");
+        // Cycle: 0 (Off) -> 1 (Loop Queue) -> 2 (Loop Track) -> 0 (Off)
+        _loopMode = (_loopMode + 1) % 3;
 
-        // Update both loop buttons visual state
+        // Tell mpv: loop-file only when mode == 2
+        if (_loopMode == 2)
+        {
+            SendCommand(_mpvHandle, "set", "loop-file", "inf");
+        }
+        else
+        {
+            SendCommand(_mpvHandle, "set", "loop-file", "no");
+        }
+
+        string[] tooltips = { "Repeat: Off", "Repeat: Queue", "Repeat: Track" };
+        Log($"Loop mode changed to: {tooltips[_loopMode]}");
+
+        // Update visual state for all loop buttons
         Dispatcher.UIThread.Post(() =>
         {
+            var dimColor = SolidColorBrush.Parse("#5C647C");
+            var activeColor = SolidColorBrush.Parse("#66AFFF");
+
             foreach (var btn in _loopButtons)
             {
-                if (btn.Content is PathIcon pathIcon)
+                btn.SetValue(ToolTip.TipProperty, tooltips[_loopMode]);
+
+                if (btn.Content is Grid grid)
                 {
-                    pathIcon.Foreground = _isLooping ? SolidColorBrush.Parse("#66AFFF") : SolidColorBrush.Parse("#5C647C");
+                    foreach (var child in grid.Children)
+                    {
+                        if (child is PathIcon pathIcon)
+                        {
+                            // Off = dim, Queue/Track = active blue
+                            pathIcon.Foreground = _loopMode == 0 ? dimColor : activeColor;
+                        }
+                        else if (child is TextBlock badge)
+                        {
+                            // Badge "1" only visible in Track mode (2)
+                            badge.IsVisible = _loopMode == 2;
+                        }
+                    }
                 }
             }
         });
@@ -736,6 +869,26 @@ public partial class MainWindow : Window
         {
             MpvFree(ptr);
         }
+    }
+
+    private double GetMpvPropertyDouble(string name)
+    {
+        string? valStr = GetMpvPropertyString(name);
+        if (double.TryParse(valStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double val))
+        {
+            return val;
+        }
+        return 0;
+    }
+
+    private long GetMpvPropertyLong(string name)
+    {
+        string? valStr = GetMpvPropertyString(name);
+        if (long.TryParse(valStr, out long val))
+        {
+            return val;
+        }
+        return 0;
     }
 
     private void PopulateAudioTracks()
@@ -1121,7 +1274,7 @@ public partial class MainWindow : Window
         WakeTransportHUD();
     }
 
-    private void WakeTransportHUD()
+    private void WakeTransportHUD(int delayMs = 2500)
     {
         if (_transportBar == null) return;
 
@@ -1142,7 +1295,12 @@ public partial class MainWindow : Window
                 Log("HUD Layer Diagnostics: Intercepted pointer motion, bottom transport bar brought to full opacity.");
             }
 
-            Task.Delay(2500, token).ContinueWith(t =>
+            if (_videoTitleOverlay != null && _videoTitleOverlay.Opacity < 1.0 && _idleLogoPanel != null && !_idleLogoPanel.IsVisible)
+            {
+                _videoTitleOverlay.Opacity = 1.0;
+            }
+
+            Task.Delay(delayMs, token).ContinueWith(t =>
             {
                 if (!token.IsCancellationRequested)
                 {
@@ -1152,10 +1310,15 @@ public partial class MainWindow : Window
                         {
                             _transportBar.Opacity = 0.0;
                             Log("HUD Layer Diagnostics: Idle timeout hit, bottom transport bar faded out.");
-                            
-                            // Hide mouse cursor on inactivity timeout
-                            this.Cursor = new Cursor(StandardCursorType.None);
                         }
+
+                        if (_videoTitleOverlay != null)
+                        {
+                            _videoTitleOverlay.Opacity = 0.0;
+                        }
+                        
+                        // Hide mouse cursor on inactivity timeout
+                        this.Cursor = new Cursor(StandardCursorType.None);
                     });
                 }
             }, TaskContinuationOptions.None);
@@ -1207,8 +1370,49 @@ public partial class MainWindow : Window
         // Use the dispatcher to safely update UI components from our background process
         Dispatcher.UIThread.Post(() =>
         {
-            var placeholder = this.FindControl<TextBlock>("PlaceholderText");
-            if (placeholder != null) placeholder.IsVisible = false;
+            if (!_isPlayingFromQueue)
+            {
+                int idx = -1;
+                for (int i = 0; i < _playbackQueueItems.Count; i++)
+                {
+                    if (string.Equals(_playbackQueueItems[i].FullPath, filePath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        idx = i;
+                        break;
+                    }
+                }
+
+                if (idx >= 0)
+                {
+                    if (_currentQueueIndex >= 0 && _currentQueueIndex < _playbackQueueItems.Count)
+                    {
+                        _playbackQueueItems[_currentQueueIndex].IsPlaying = false;
+                    }
+                    _currentQueueIndex = idx;
+                    _playbackQueueItems[idx].IsPlaying = true;
+                }
+                else
+                {
+                    ClearQueuePlayingState();
+                }
+            }
+
+            // Hide idle logo when media starts playing
+            if (_idleLogoPanel != null) _idleLogoPanel.IsVisible = false;
+
+            if (_videoTitleText != null)
+            {
+                _videoTitleText.Text = Path.GetFileName(filePath);
+            }
+
+            if (_statsOverlayCard != null)
+            {
+                _statsOverlayCard.Opacity = 0.0;
+                _isStatsSticky = false;
+                _statsCts?.Cancel();
+            }
+
+            WakeTransportHUD(4000);
         });
 
         Log($"Sending loadfile command for: {filePath}");
@@ -1229,6 +1433,14 @@ public partial class MainWindow : Window
         {
             e.Handled = true;
             ToggleFullscreen();
+            return;
+        }
+
+        if (e.Key == Key.I)
+        {
+            e.Handled = true;
+            bool isShiftPressed = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+            ToggleStatsOverlay(isShiftPressed);
             return;
         }
 
@@ -1385,8 +1597,10 @@ public partial class MainWindow : Window
         // 1. Signal the background C# thread loop to stop parsing events immediately
         _eventLoopCts?.Cancel();
         _osdCts?.Cancel();
+        _statsCts?.Cancel();
         _transportCts?.Cancel();
         _previewCts?.Cancel();
+        _lazyLoadCts?.Cancel();
         _debounceTimer?.Dispose();
 
         // 2. Safely tell libmpv to destroy its unmanaged handles and clear memory hooks
@@ -1838,4 +2052,900 @@ public partial class MainWindow : Window
             }
         }
     }
+
+    // --- Phase 3 Methods & Helpers ---
+    private void SetupSidePanel()
+    {
+        if (_queueListBox != null)
+        {
+            _queueListBox.ItemsSource = _playbackQueueItems;
+            _queueListBox.AddHandler(Button.ClickEvent, OnQueueListBoxButtonClicked);
+            _queueListBox.DoubleTapped += (s, e) =>
+            {
+                if (_queueListBox.SelectedItem is QueueItemViewModel item)
+                {
+                    int index = _playbackQueueItems.IndexOf(item);
+                    if (index >= 0)
+                    {
+                        PlayQueueItem(index);
+                    }
+                }
+            };
+        }
+
+        if (_directoryListBox != null)
+        {
+            _directoryListBox.ItemsSource = _directoryItems;
+            _directoryListBox.AddHandler(Button.ClickEvent, OnDirectoryListBoxButtonClicked);
+            _directoryListBox.DoubleTapped += (s, e) =>
+            {
+                if (_directoryListBox.SelectedItem is MediaItemViewModel item)
+                {
+                    if (item.IsDirectory)
+                    {
+                        LoadDirectory(item.FullPath);
+                    }
+                    else
+                    {
+                        PlayMediaFile(item.FullPath);
+                    }
+                }
+            };
+        }
+
+        if (_queueTabButton != null) _queueTabButton.Click += (s, e) => SwitchTab("Queue");
+        if (_directoryTabButton != null) _directoryTabButton.Click += (s, e) => SwitchTab("Directory");
+        if (_upDirectoryButton != null) _upDirectoryButton.Click += (s, e) => NavigateUpDirectory();
+        if (_prevPageButton != null) _prevPageButton.Click += (s, e) => NavigatePage(-1);
+        if (_nextPageButton != null) _nextPageButton.Click += (s, e) => NavigatePage(1);
+
+        _shuffleButton = this.FindControl<Button>("ShuffleButton");
+        if (_shuffleButton != null)
+        {
+            _shuffleButton.Click += (s, e) => ToggleShuffle();
+        }
+
+        var clearQueueBtn = this.FindControl<Button>("ClearQueueButton");
+        if (clearQueueBtn != null)
+        {
+            clearQueueBtn.Click += (s, e) => ClearQueue();
+        }
+
+        // Allow typing a directory path and pressing Enter
+        if (_breadcrumbText != null)
+        {
+            _breadcrumbText.KeyDown += (s, e) =>
+            {
+                if (e.Key == Key.Return)
+                {
+                    string? typed = _breadcrumbText.Text?.Trim();
+                    if (!string.IsNullOrEmpty(typed) && Directory.Exists(typed))
+                    {
+                        LoadDirectory(typed);
+                    }
+                    else
+                    {
+                        // Reset to the current directory if invalid path typed
+                        _breadcrumbText.Text = _currentDirectoryPath;
+                    }
+                    e.Handled = true;
+                }
+            };
+        }
+
+        if (_queuePanel != null)
+        {
+            DragDrop.AddDragOverHandler(_queuePanel, (s, e) =>
+            {
+                e.Handled = true;
+                e.DragEffects = DragDropEffects.Copy;
+            });
+            DragDrop.AddDropHandler(_queuePanel, OnQueuePanelFileDropped);
+        }
+
+        UpdateQueuePlaceholder();
+        SwitchTab("Queue");
+    }
+
+    private async void ToggleSidePanel()
+    {
+        if (_dynamicSidePanel == null) return;
+        bool opening = _dynamicSidePanel.Width == 0;
+        _dynamicSidePanel.Width = opening ? 320 : 0;
+
+        // Perform continuous sync on the overlay window while transition plays
+        for (int i = 0; i < 25; i++)
+        {
+            _videoSurface?.SyncOverlayGeometry();
+            await Task.Delay(15);
+        }
+        _videoSurface?.SyncOverlayGeometry();
+    }
+
+    private void SwitchTab(string tabName)
+    {
+        _activeTab = tabName;
+
+        if (tabName == "Queue")
+        {
+            if (_queueTabButton != null && !_queueTabButton.Classes.Contains("active"))
+            {
+                _queueTabButton.Classes.Add("active");
+            }
+            if (_directoryTabButton != null)
+            {
+                _directoryTabButton.Classes.Remove("active");
+            }
+            if (_queueTabIndicator != null) _queueTabIndicator.IsVisible = true;
+            if (_directoryTabIndicator != null) _directoryTabIndicator.IsVisible = false;
+            if (_queuePanel != null) _queuePanel.IsVisible = true;
+            if (_directoryPanel != null) _directoryPanel.IsVisible = false;
+        }
+        else // Directory
+        {
+            if (_directoryTabButton != null && !_directoryTabButton.Classes.Contains("active"))
+            {
+                _directoryTabButton.Classes.Add("active");
+            }
+            if (_queueTabButton != null)
+            {
+                _queueTabButton.Classes.Remove("active");
+            }
+            if (_queueTabIndicator != null) _queueTabIndicator.IsVisible = false;
+            if (_directoryTabIndicator != null) _directoryTabIndicator.IsVisible = true;
+            if (_queuePanel != null) _queuePanel.IsVisible = false;
+            if (_directoryPanel != null) _directoryPanel.IsVisible = true;
+
+            // Load default folder if not set
+            if (string.IsNullOrEmpty(_currentDirectoryPath))
+            {
+                // Default to the user's Downloads folder
+                string defaultPath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+                if (string.IsNullOrEmpty(defaultPath) || !Directory.Exists(defaultPath))
+                {
+                    defaultPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                }
+                if (string.IsNullOrEmpty(defaultPath) || !Directory.Exists(defaultPath))
+                {
+                    defaultPath = AppContext.BaseDirectory;
+                }
+                LoadDirectory(defaultPath);
+            }
+        }
+    }
+
+    private void LoadDirectory(string path)
+    {
+        if (!Directory.Exists(path)) return;
+        _currentDirectoryPath = path;
+        _currentPageIndex = 1;
+
+        try
+        {
+            var dirInfo = new DirectoryInfo(path);
+            var entries = dirInfo.GetFileSystemInfos();
+
+            var folders = entries.Where(e => (e.Attributes & FileAttributes.Directory) != 0)
+                                 .OrderBy(e => e.Name)
+                                 .ToList();
+
+            var files = entries.Where(e => (e.Attributes & FileAttributes.Directory) == 0 && IsVideoFile(e.Extension))
+                               .OrderBy(e => e.Name)
+                               .ToList();
+
+            _allEntries = folders.Concat(files).ToList();
+            _totalPageCount = (int)Math.Ceiling((double)_allEntries.Count / ItemsPerPage);
+            if (_totalPageCount == 0) _totalPageCount = 1;
+
+            RenderCurrentPage();
+        }
+        catch (Exception ex)
+        {
+            Log($"Error loading directory contents: {ex.Message}");
+        }
+    }
+
+    private void RenderCurrentPage()
+    {
+        _directoryItems.Clear();
+
+        int startIndex = (_currentPageIndex - 1) * ItemsPerPage;
+        var pageEntries = _allEntries.Skip(startIndex).Take(ItemsPerPage).ToList();
+
+        foreach (var entry in pageEntries)
+        {
+            bool isDir = (entry.Attributes & FileAttributes.Directory) != 0;
+            var item = new MediaItemViewModel
+            {
+                Name = entry.Name,
+                FullPath = entry.FullName,
+                IsDirectory = isDir,
+                SizeText = isDir ? "" : FormatFileSize(((FileInfo)entry).Length),
+                DurationText = "",
+                Thumbnail = null
+            };
+            _directoryItems.Add(item);
+        }
+
+        if (_breadcrumbText != null) _breadcrumbText.Text = _currentDirectoryPath;
+        if (_pageNumberText != null) _pageNumberText.Text = $"Page {_currentPageIndex} / {_totalPageCount}";
+
+        if (_prevPageButton != null)
+        {
+            _prevPageButton.IsEnabled = _currentPageIndex > 1;
+            _prevPageButton.Opacity = _currentPageIndex > 1 ? 1.0 : 0.2;
+        }
+        if (_nextPageButton != null)
+        {
+            _nextPageButton.IsEnabled = _currentPageIndex < _totalPageCount;
+            _nextPageButton.Opacity = _currentPageIndex < _totalPageCount ? 1.0 : 0.2;
+        }
+
+        // Trigger staggered lazy loader
+        _lazyLoadCts?.Cancel();
+        _lazyLoadCts = new System.Threading.CancellationTokenSource();
+        var token = _lazyLoadCts.Token;
+        Task.Run(() => LazyLoadPageMetadataAndThumbnailsAsync(pageEntries, token), token);
+    }
+
+    private async Task LazyLoadPageMetadataAndThumbnailsAsync(System.Collections.Generic.List<FileSystemInfo> pageEntries, CancellationToken token)
+    {
+        if (_previewMpvHandle == IntPtr.Zero) return;
+
+        foreach (var entry in pageEntries)
+        {
+            if (token.IsCancellationRequested) return;
+
+            // Process video files only
+            if ((entry.Attributes & FileAttributes.Directory) != 0 || !IsVideoFile(entry.Extension))
+                continue;
+
+            string filePath = entry.FullName;
+
+            // Load file in background preview engine
+            SendCommand(_previewMpvHandle, "loadfile", filePath);
+
+            // Wait for duration to load
+            double duration = 0;
+            int elapsed = 0;
+            while (elapsed < 1500 && !token.IsCancellationRequested)
+            {
+                string? durStr = GetMpvPropertyStringForHandle(_previewMpvHandle, "duration");
+                if (double.TryParse(durStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double durVal) && durVal > 0)
+                {
+                    duration = durVal;
+                    break;
+                }
+                await Task.Delay(25, token);
+                elapsed += 25;
+            }
+
+            if (token.IsCancellationRequested) return;
+
+            if (duration <= 0) continue;
+
+            string durationText = TimeSpan.FromSeconds(duration).ToString(@"hh\:mm\:ss");
+            Dispatcher.UIThread.Post(() =>
+            {
+                var target = _directoryItems.FirstOrDefault(x => x.FullPath == filePath);
+                if (target != null)
+                {
+                    target.DurationText = durationText;
+                }
+            });
+
+            // Clean existing frames
+            if (Directory.Exists(_previewTempDir))
+            {
+                foreach (var f in Directory.GetFiles(_previewTempDir, "*.jpg"))
+                {
+                    try { File.Delete(f); } catch { }
+                }
+            }
+
+            // Seek preview engine to 5%
+            double seekTime = duration * 0.05;
+            SendCommand(_previewMpvHandle, "seek", seekTime.ToString("F3", System.Globalization.CultureInfo.InvariantCulture), "absolute");
+
+            // Wait for new frame file
+            string? imgPath = null;
+            int seekElapsed = 0;
+            while (seekElapsed < 1500 && !token.IsCancellationRequested)
+            {
+                if (Directory.Exists(_previewTempDir))
+                {
+                    var files = Directory.GetFiles(_previewTempDir, "*.jpg");
+                    if (files.Length > 0)
+                    {
+                        imgPath = files.OrderBy(f => f).Last();
+                        break;
+                    }
+                }
+                await Task.Delay(25, token);
+                seekElapsed += 25;
+            }
+
+            if (token.IsCancellationRequested) return;
+
+            if (imgPath != null && File.Exists(imgPath))
+            {
+                Avalonia.Media.Imaging.Bitmap? bitmap = null;
+                int retries = 0;
+                while (retries < 5 && bitmap == null && !token.IsCancellationRequested)
+                {
+                    try
+                    {
+                        using (var stream = new FileStream(imgPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                        {
+                            bitmap = new Avalonia.Media.Imaging.Bitmap(stream);
+                        }
+                    }
+                    catch (IOException)
+                    {
+                        await Task.Delay(25, token);
+                        retries++;
+                    }
+                }
+
+                if (bitmap != null && !token.IsCancellationRequested)
+                {
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        var target = _directoryItems.FirstOrDefault(x => x.FullPath == filePath);
+                        if (target != null)
+                        {
+                            target.Thumbnail = bitmap;
+                        }
+                    });
+                }
+            }
+        }
+    }
+
+    private void NavigateUpDirectory()
+    {
+        if (string.IsNullOrEmpty(_currentDirectoryPath)) return;
+        var parent = Directory.GetParent(_currentDirectoryPath);
+        if (parent != null)
+        {
+            LoadDirectory(parent.FullName);
+        }
+    }
+
+    private void NavigatePage(int direction)
+    {
+        int newPage = _currentPageIndex + direction;
+        if (newPage >= 1 && newPage <= _totalPageCount)
+        {
+            _currentPageIndex = newPage;
+            RenderCurrentPage();
+        }
+    }
+
+    private void OnQueuePanelFileDropped(object? sender, DragEventArgs e)
+    {
+        e.Handled = true;
+        var files = e.DataTransfer.TryGetFiles();
+        if (files == null) return;
+
+        foreach (var file in files)
+        {
+            string path = file.Path.LocalPath;
+            if (string.IsNullOrEmpty(path)) continue;
+
+            if (Directory.Exists(path))
+            {
+                EnqueueDirectoryRecursively(path);
+            }
+            else if (File.Exists(path))
+            {
+                if (IsVideoFile(Path.GetExtension(path)))
+                {
+                    EnqueueFile(path);
+                }
+            }
+        }
+    }
+
+    private void EnqueueDirectoryRecursively(string dirPath)
+    {
+        try
+        {
+            foreach (var dir in Directory.GetDirectories(dirPath).OrderBy(d => d))
+            {
+                EnqueueDirectoryRecursively(dir);
+            }
+            foreach (var file in Directory.GetFiles(dirPath).Where(f => IsVideoFile(Path.GetExtension(f))).OrderBy(f => f))
+            {
+                EnqueueFile(file);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log($"Error enqueuing directory recursively: {ex.Message}");
+        }
+    }
+
+    private void EnqueueFile(string filePath)
+    {
+        string name = Path.GetFileName(filePath);
+        string durationText = "--:--";
+
+        var existing = _directoryItems.FirstOrDefault(x => x.FullPath == filePath);
+        if (existing != null && !string.IsNullOrEmpty(existing.DurationText))
+        {
+            durationText = existing.DurationText;
+        }
+
+        var item = new QueueItemViewModel
+        {
+            Name = name,
+            FullPath = filePath,
+            DurationText = durationText
+        };
+        _playbackQueueItems.Add(item);
+        UpdateQueuePlaceholder();
+    }
+
+    private void UpdateQueuePlaceholder()
+    {
+        if (_queuePlaceholderText != null)
+        {
+            _queuePlaceholderText.IsVisible = _playbackQueueItems.Count == 0;
+        }
+    }
+
+    private void OnQueueListBoxButtonClicked(object? sender, RoutedEventArgs e)
+    {
+        if (e.Source is Button btn && btn.Name == "RemoveQueueButton")
+        {
+            if (btn.DataContext is QueueItemViewModel item)
+            {
+                int index = _playbackQueueItems.IndexOf(item);
+                if (index >= 0)
+                {
+                    _playbackQueueItems.RemoveAt(index);
+                    UpdateQueuePlaceholder();
+
+                    if (_currentQueueIndex == index)
+                    {
+                        _currentQueueIndex = -1;
+                        if (_idleLogoPanel != null)
+                        {
+                            _idleLogoPanel.IsVisible = true;
+                        }
+                        if (_mpvHandle != IntPtr.Zero && _isEngineInitialized)
+                        {
+                            SendCommand(_mpvHandle, "stop");
+                        }
+                    }
+                    else if (_currentQueueIndex > index)
+                    {
+                        _currentQueueIndex--;
+                    }
+                }
+                e.Handled = true;
+            }
+        }
+    }
+
+    private void OnDirectoryListBoxButtonClicked(object? sender, RoutedEventArgs e)
+    {
+        if (e.Source is Button btn && btn.DataContext is MediaItemViewModel item)
+        {
+            if (btn.Name == "PlayActionButton")
+            {
+                PlayMediaFile(item.FullPath);
+                e.Handled = true;
+            }
+            else if (btn.Name == "EnqueueActionButton")
+            {
+                EnqueueFile(item.FullPath);
+                e.Handled = true;
+            }
+        }
+    }
+
+    private string? GetMpvPropertyStringForHandle(IntPtr handle, string name)
+    {
+        if (handle == IntPtr.Zero) return null;
+        byte[] nameBytes = System.Text.Encoding.UTF8.GetBytes(name + "\0");
+        IntPtr ptr = MpvGetPropertyString(handle, nameBytes);
+        if (ptr == IntPtr.Zero) return null;
+        try
+        {
+            return Marshal.PtrToStringUTF8(ptr);
+        }
+        finally
+        {
+            MpvFree(ptr);
+        }
+    }
+
+    private static readonly System.Collections.Generic.HashSet<string> VideoExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".mp4", ".mkv", ".avi", ".mov", ".flv", ".wmv", ".webm", ".m4v", ".mpg", ".mpeg", ".3gp"
+    };
+
+    private bool IsVideoFile(string ext) => VideoExtensions.Contains(ext);
+
+    private static string FormatFileSize(long bytes)
+    {
+        string[] suffixes = { "B", "KB", "MB", "GB", "TB" };
+        int counter = 0;
+        double number = bytes;
+        while (Math.Round(number / 1024) >= 1)
+        {
+            number /= 1024;
+            counter++;
+        }
+        return $"{number:F1} {suffixes[counter]}";
+    }
+
+    private void ClearQueuePlayingState()
+    {
+        if (_currentQueueIndex >= 0 && _currentQueueIndex < _playbackQueueItems.Count)
+        {
+            _playbackQueueItems[_currentQueueIndex].IsPlaying = false;
+        }
+        _currentQueueIndex = -1;
+    }
+
+    private void PlayQueueItem(int index)
+    {
+        if (index < 0 || index >= _playbackQueueItems.Count) return;
+
+        if (_currentQueueIndex >= 0 && _currentQueueIndex < _playbackQueueItems.Count)
+        {
+            _playbackQueueItems[_currentQueueIndex].IsPlaying = false;
+        }
+
+        _currentQueueIndex = index;
+        var item = _playbackQueueItems[index];
+        item.IsPlaying = true;
+
+        _isPlayingFromQueue = true;
+        try
+        {
+            PlayMediaFile(item.FullPath);
+        }
+        finally
+        {
+            _isPlayingFromQueue = false;
+        }
+    }
+
+    private void ToggleShuffle()
+    {
+        _isShuffleEnabled = !_isShuffleEnabled;
+        if (_shuffleButton != null)
+        {
+            if (_isShuffleEnabled)
+            {
+                _shuffleButton.Foreground = Avalonia.Media.SolidColorBrush.Parse("#2B88FF");
+                _shuffleButton.BorderBrush = Avalonia.Media.SolidColorBrush.Parse("#2B88FF");
+            }
+            else
+            {
+                _shuffleButton.Foreground = Avalonia.Media.SolidColorBrush.Parse("#5C647C");
+                _shuffleButton.BorderBrush = Avalonia.Media.SolidColorBrush.Parse("#1F222F");
+            }
+        }
+        Log($"Shuffle mode toggled: {_isShuffleEnabled}");
+    }
+
+    private void ClearQueue()
+    {
+        _playbackQueueItems.Clear();
+        UpdateQueuePlaceholder();
+        
+        if (_currentQueueIndex >= 0)
+        {
+            _currentQueueIndex = -1;
+            if (_idleLogoPanel != null)
+            {
+                _idleLogoPanel.IsVisible = true;
+            }
+            if (_mpvHandle != IntPtr.Zero && _isEngineInitialized)
+            {
+                SendCommand(_mpvHandle, "stop");
+            }
+        }
+        Log("Playback queue cleared successfully.");
+    }
+
+    private void PlayNextInQueue()
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            // Mode 2 = Loop current track — mpv handles it via loop-file=inf, do nothing
+            if (_loopMode == 2) return;
+
+            if (_playbackQueueItems.Count > 0)
+            {
+                int nextIndex = -1;
+
+                if (_isShuffleEnabled && _playbackQueueItems.Count > 1)
+                {
+                    var random = new Random();
+                    do
+                    {
+                        nextIndex = random.Next(_playbackQueueItems.Count);
+                    } while (nextIndex == _currentQueueIndex);
+                }
+                else if (_currentQueueIndex >= 0)
+                {
+                    nextIndex = _currentQueueIndex + 1;
+                    if (nextIndex >= _playbackQueueItems.Count)
+                    {
+                        if (_loopMode == 1) // Loop Queue
+                        {
+                            nextIndex = 0;
+                        }
+                        else
+                        {
+                            nextIndex = -1; // Stop playing
+                        }
+                    }
+                }
+                else
+                {
+                    nextIndex = 0;
+                }
+
+                if (nextIndex >= 0)
+                {
+                    PlayQueueItem(nextIndex);
+                }
+                else
+                {
+                    ClearQueuePlayingState();
+                    if (_idleLogoPanel != null)
+                    {
+                        _idleLogoPanel.IsVisible = true;
+                    }
+                }
+            }
+            else
+            {
+                ClearQueuePlayingState();
+                if (_idleLogoPanel != null)
+                {
+                    _idleLogoPanel.IsVisible = true;
+                }
+            }
+        });
+    }
+
+    private void ToggleStatsOverlay(bool sticky = false)
+    {
+        if (_statsOverlayCard == null) return;
+
+        bool isCurrentlyVisible = _statsOverlayCard.Opacity > 0;
+        
+        if (isCurrentlyVisible)
+        {
+            _statsCts?.Cancel();
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (_statsOverlayCard != null)
+                {
+                    _statsOverlayCard.Opacity = 0.0;
+                    _isStatsSticky = false;
+                }
+            });
+        }
+        else
+        {
+            PopulateAndShowStats(sticky);
+        }
+    }
+
+    private void PopulateAndShowStats(bool sticky = false)
+    {
+        if (_statsOverlayCard == null) return;
+
+        _statsCts?.Cancel();
+        _statsCts = new System.Threading.CancellationTokenSource();
+        var token = _statsCts.Token;
+
+        _statsOverlayCard.Opacity = 1.0;
+        _isStatsSticky = sticky;
+
+        // Perform first immediate update
+        UpdateStatsText();
+
+        // Start background 1-second update loop
+        Task.Run(async () =>
+        {
+            try
+            {
+                // Wait 1 second before first loop tick
+                await Task.Delay(1000, token);
+                while (!token.IsCancellationRequested)
+                {
+                    UpdateStatsText();
+                    await Task.Delay(1000, token);
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex)
+            {
+                Log($"Stats update loop encountered error: {ex.Message}");
+            }
+        }, token);
+
+        if (!sticky)
+        {
+            Task.Delay(4000, token).ContinueWith(t =>
+            {
+                if (!token.IsCancellationRequested)
+                {
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        if (_statsOverlayCard != null)
+                        {
+                            _statsOverlayCard.Opacity = 0.0;
+                            _isStatsSticky = false;
+                        }
+                        _statsCts?.Cancel();
+                    });
+                }
+            }, TaskContinuationOptions.None);
+        }
+    }
+
+    private void UpdateStatsText()
+    {
+        if (_mpvHandle == IntPtr.Zero || !_isEngineInitialized) return;
+
+        // Fetch properties
+        string videoCodec = GetMpvPropertyString("video-codec") ?? GetMpvPropertyString("video-format") ?? "Unknown";
+        string pixFmt = GetMpvPropertyString("video-params/pixelformat") ?? GetMpvPropertyString("video-params/pix-fmt") ?? "Unknown";
+        string matrix = GetMpvPropertyString("video-params/colormatrix") ?? "Unknown";
+        string primaries = GetMpvPropertyString("video-params/primaries") ?? "Unknown";
+        string colorLevels = GetMpvPropertyString("video-params/colorlevels") ?? GetMpvPropertyString("video-params/color-levels") ?? "Unknown";
+        string gamma = GetMpvPropertyString("video-params/gamma") ?? "Unknown";
+
+        string videoW = GetMpvPropertyString("video-params/w") ?? "0";
+        string videoH = GetMpvPropertyString("video-params/h") ?? "0";
+        string outW = GetMpvPropertyString("video-out-params/w") ?? "0";
+        string outH = GetMpvPropertyString("video-out-params/h") ?? "0";
+
+        double containerFps = GetMpvPropertyDouble("container-fps");
+        double estimatedFps = GetMpvPropertyDouble("estimated-vf-fps");
+        if (estimatedFps <= 0) estimatedFps = GetMpvPropertyDouble("fps");
+
+        long dropped = GetMpvPropertyLong("frame-drop-count");
+        long mistimed = GetMpvPropertyLong("mistimed-frame-count");
+
+        string audioCodec = GetMpvPropertyString("audio-codec") ?? GetMpvPropertyString("audio-format") ?? "Unknown";
+        double sampleRate = GetMpvPropertyDouble("audio-params/samplerate");
+        string channels = GetMpvPropertyString("audio-params/channel-count") ?? "Unknown";
+        string audioFormat = GetMpvPropertyString("audio-params/format") ?? "Unknown";
+        double audioBitrate = GetMpvPropertyDouble("audio-bitrate");
+
+        double cacheDuration = GetMpvPropertyDouble("demuxer-cache-duration");
+        string videoSync = GetMpvPropertyString("video-sync") ?? "Unknown";
+
+        // Build telemetry text layout exactly as specified
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("🎥 VIDEO");
+        sb.AppendLine($"Video:        {videoCodec} ({videoW}x{videoH} -> {outW}x{outH})");
+        sb.AppendLine($"Pixel Format: {pixFmt}");
+        sb.AppendLine($"Color Space:  Matrix: {matrix} / Primaries: {primaries} / Levels: {colorLevels}");
+        sb.AppendLine($"Gamma/Curve:  {gamma}");
+        sb.AppendLine($"Frame Rate:   {containerFps:F3} fps (Specified) / {estimatedFps:F3} fps (Rendered)");
+        sb.AppendLine($"Dropped:      {dropped} frames / Mistimed: {mistimed}");
+        sb.AppendLine();
+        sb.AppendLine("🔊 AUDIO");
+        sb.AppendLine($"Audio:        {audioCodec} ({sampleRate:F0} Hz / {channels}ch / {audioFormat})");
+        sb.AppendLine($"Bitrate:      {(audioBitrate / 1000):F0} kbps");
+        sb.AppendLine();
+        sb.AppendLine("⚙️ PERFORMANCE");
+        sb.AppendLine($"Cache:        {cacheDuration:F2} sec ahead");
+        sb.Append($"Display Sync: {videoSync}");
+
+        string fullTelemetryText = sb.ToString();
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_statsTextPanel != null)
+            {
+                _statsTextPanel.Text = fullTelemetryText;
+            }
+        });
+    }
+}
+
+// --- Phase 3 ViewModels ---
+public class MediaItemViewModel : System.ComponentModel.INotifyPropertyChanged
+{
+    private string _name = "";
+    public string Name
+    {
+        get => _name;
+        set { _name = value; OnPropertyChanged(nameof(Name)); }
+    }
+
+    private string _fullPath = "";
+    public string FullPath
+    {
+        get => _fullPath;
+        set { _fullPath = value; OnPropertyChanged(nameof(FullPath)); }
+    }
+
+    private bool _isDirectory;
+    public bool IsDirectory
+    {
+        get => _isDirectory;
+        set { _isDirectory = value; OnPropertyChanged(nameof(IsDirectory)); }
+    }
+
+    private string _sizeText = "";
+    public string SizeText
+    {
+        get => _sizeText;
+        set { _sizeText = value; OnPropertyChanged(nameof(SizeText)); }
+    }
+
+    private string _durationText = "";
+    public string DurationText
+    {
+        get => _durationText;
+        set { _durationText = value; OnPropertyChanged(nameof(DurationText)); }
+    }
+
+    private Avalonia.Media.Imaging.Bitmap? _thumbnail;
+    public Avalonia.Media.Imaging.Bitmap? Thumbnail
+    {
+        get => _thumbnail;
+        set { _thumbnail = value; OnPropertyChanged(nameof(Thumbnail)); }
+    }
+
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+    protected void OnPropertyChanged(string name) => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
+}
+
+public class QueueItemViewModel : System.ComponentModel.INotifyPropertyChanged
+{
+    private string _name = "";
+    public string Name
+    {
+        get => _name;
+        set { _name = value; OnPropertyChanged(nameof(Name)); }
+    }
+
+    private string _fullPath = "";
+    public string FullPath
+    {
+        get => _fullPath;
+        set { _fullPath = value; OnPropertyChanged(nameof(FullPath)); }
+    }
+
+    private string _durationText = "";
+    public string DurationText
+    {
+        get => _durationText;
+        set { _durationText = value; OnPropertyChanged(nameof(DurationText)); }
+    }
+
+    private bool _isPlaying;
+    public bool IsPlaying
+    {
+        get => _isPlaying;
+        set 
+        { 
+            _isPlaying = value; 
+            OnPropertyChanged(nameof(IsPlaying)); 
+            OnPropertyChanged(nameof(ForegroundBrush));
+            OnPropertyChanged(nameof(PathForegroundBrush));
+        }
+    }
+
+    public Avalonia.Media.IBrush ForegroundBrush => IsPlaying ? Avalonia.Media.SolidColorBrush.Parse("#2B88FF") : Avalonia.Media.SolidColorBrush.Parse("#C5CEE3");
+    public Avalonia.Media.IBrush PathForegroundBrush => IsPlaying ? Avalonia.Media.SolidColorBrush.Parse("#66AFFF") : Avalonia.Media.SolidColorBrush.Parse("#5C647C");
+
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+    protected void OnPropertyChanged(string name) => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
 }
