@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="BlueJayPlayer.App"
              xmlns:local="using:BlueJayPlayer"
+             xmlns:primitives="using:Avalonia.Controls.Primitives"
              RequestedThemeVariant="Default">
              <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
 
@@ -11,5 +12,258 @@
   
     <Application.Styles>
         <FluentTheme />
+
+        <!-- ========================================== -->
+        <!--  PREMIUM HIGH-PRECEDENCE NOCTURNE THEME    -->
+        <!-- ========================================== -->
+        
+        <!-- Force custom styling on our specific player sliders, bypassing FluentTheme stock templates -->
+        <Style Selector="Slider.playback:horizontal">
+            <Setter Property="Minimum" Value="0"/>
+            <Setter Property="Maximum" Value="1"/>
+            <Setter Property="Value" Value="0"/>
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid Name="SliderContainer" VerticalAlignment="Center" Height="24">
+                        <Border Background="Transparent" VerticalAlignment="Stretch"/>
+                        <!-- Muted charcoal-blue rail track background -->
+                        <Border Name="TrackBackground" Height="3" VerticalAlignment="Center" CornerRadius="1.5" Background="#1F222F">
+                            <Border.Transitions>
+                                <Transitions>
+                                    <DoubleTransition Property="Height" Duration="0:0:0.12"/>
+                                </Transitions>
+                            </Border.Transitions>
+                        </Border>
+                        
+                        <!-- Canvas for drawing chapter ticks -->
+                        <Canvas Name="ChaptersCanvas" Height="3" VerticalAlignment="Center" IsHitTestVisible="False">
+                            <Canvas.Transitions>
+                                <Transitions>
+                                    <DoubleTransition Property="Height" Duration="0:0:0.12"/>
+                                </Transitions>
+                            </Canvas.Transitions>
+                        </Canvas>
+                        
+                        <primitives:Track Name="PART_Track"
+                                          Minimum="{TemplateBinding Minimum}"
+                                          Maximum="{TemplateBinding Maximum}"
+                                          Value="{TemplateBinding Value, Mode=TwoWay}"
+                                          Orientation="Horizontal">
+                            <primitives:Track.DecreaseButton>
+                                <RepeatButton Name="PART_DecreaseButton" Classes="playback-track-decrease" Focusable="False" IsHitTestVisible="False"/>
+                            </primitives:Track.DecreaseButton>
+                            <primitives:Track.IncreaseButton>
+                                <RepeatButton Name="PART_IncreaseButton" Classes="playback-track-increase" Focusable="False" IsHitTestVisible="False"/>
+                            </primitives:Track.IncreaseButton>
+                            <primitives:Track.Thumb>
+                                <Thumb Name="PART_Thumb" Classes="playback-thumb"/>
+                            </primitives:Track.Thumb>
+                        </primitives:Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <!-- Saturated Sapphire Active Fill Track -->
+        <Style Selector="RepeatButton.playback-track-decrease">
+            <Setter Property="Background" Value="#2B88FF"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="DecreaseBorder" Background="{TemplateBinding Background}" CornerRadius="1.5,0,0,1.5" Height="3" VerticalAlignment="Center">
+                        <Border.Transitions>
+                            <Transitions>
+                                <DoubleTransition Property="Height" Duration="0:0:0.12"/>
+                            </Transitions>
+                        </Border.Transitions>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="RepeatButton.playback-track-increase">
+            <Setter Property="Background" Value="#1F222F"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="IncreaseBorder" Background="{TemplateBinding Background}" CornerRadius="0,1.5,1.5,0" Height="3" VerticalAlignment="Center">
+                        <Border.Transitions>
+                            <Transitions>
+                                <DoubleTransition Property="Height" Duration="0:0:0.12"/>
+                            </Transitions>
+                        </Border.Transitions>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <!-- Traditional Upward Expanding Hover Micro-Interactions -->
+        <Style Selector="Slider.playback:pointerover /template/ Border#TrackBackground">
+            <Setter Property="Height" Value="6"/>
+        </Style>
+        <Style Selector="Slider.playback:pointerover /template/ Canvas#ChaptersCanvas">
+            <Setter Property="Height" Value="6"/>
+        </Style>
+        <Style Selector="Slider.playback:pointerover /template/ RepeatButton.playback-track-decrease /template/ Border#DecreaseBorder">
+            <Setter Property="Height" Value="6"/>
+        </Style>
+        <Style Selector="Slider.playback:pointerover /template/ RepeatButton.playback-track-increase /template/ Border#IncreaseBorder">
+            <Setter Property="Height" Value="6"/>
+        </Style>
+
+        <!-- Seamless Floating Transport Controls (Strips Default Box Backplates) -->
+        <Style Selector="Button.transport-btn">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="#5C647C"/>
+            <Setter Property="Width" Value="34"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="BtnRoot" Background="Transparent" CornerRadius="17" Width="34" Height="34">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Content="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"/>
+                        <Border.Transitions>
+                            <Transitions>
+                                <BrushTransition Property="Background" Duration="0:0:0.1"/>
+                            </Transitions>
+                        </Border.Transitions>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.transport-btn:pointerover">
+            <Setter Property="Foreground" Value="#66AFFF"/>
+        </Style>
+        <Style Selector="Button.transport-btn:pointerover /template/ Border#BtnRoot">
+            <Setter Property="Background" Value="#0A66AFFF"/>
+        </Style>
+        <Style Selector="Button.transport-btn:pressed /template/ Border#BtnRoot">
+            <Setter Property="Background" Value="#1566AFFF"/>
+        </Style>
+
+        <!-- Minimal Volume Slider Architecture -->
+        <Style Selector="Slider.volume-mini:horizontal">
+            <Setter Property="Minimum" Value="0"/>
+            <Setter Property="Maximum" Value="130"/>
+            <Setter Property="Height" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid VerticalAlignment="Center" Height="14">
+                        <Border Background="Transparent" VerticalAlignment="Stretch"/>
+                        <!-- Muted charcoal-blue rail track background -->
+                        <Border Name="TrackBackground" Height="2" VerticalAlignment="Center" CornerRadius="1" Background="#1F222F"/>
+                        <primitives:Track Name="PART_Track" Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}" Value="{TemplateBinding Value, Mode=TwoWay}" Orientation="Horizontal">
+                            <primitives:Track.DecreaseButton>
+                                <RepeatButton Name="PART_DecreaseButton" Classes="volume-decrease" Focusable="False" IsHitTestVisible="False"/>
+                            </primitives:Track.DecreaseButton>
+                            <primitives:Track.IncreaseButton>
+                                <RepeatButton Name="PART_IncreaseButton" Classes="volume-increase" Focusable="False" IsHitTestVisible="False"/>
+                            </primitives:Track.IncreaseButton>
+                            <primitives:Track.Thumb>
+                                <Thumb Name="PART_Thumb" Classes="volume-thumb"/>
+                            </primitives:Track.Thumb>
+                        </primitives:Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="RepeatButton.volume-decrease">
+            <Setter Property="Background" Value="#2B88FF"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}" CornerRadius="1,0,0,1" Height="2" VerticalAlignment="Center"/>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <!-- Amplification Warning Color Overlay (exceeding 100% volume) -->
+        <Style Selector="Slider.volume-mini.amplified RepeatButton.volume-decrease">
+            <Setter Property="Background" Value="#FF9100"/>
+        </Style>
+        <Style Selector="RepeatButton.volume-increase">
+            <Setter Property="Background" Value="#1F222F"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}" CornerRadius="0,1,1,0" Height="2" VerticalAlignment="Center"/>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Thumb.volume-thumb">
+            <Setter Property="Width" Value="8"/>
+            <Setter Property="Height" Value="8"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Ellipse Width="8" Height="8" Fill="#C5CEE3"/>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <!-- ========================================== -->
+        <!--  LAYOUT OVERRIDE INTERACTION ENGINE MAPS   -->
+        <!-- ========================================== -->
+
+        <!-- MODE 1: STEALTH LINE OVERRIDES -->
+        <Style Selector="Border#TransportBar.single-line">
+            <Setter Property="Background" Value="#F20C0C12"/> <!-- Restoring premium background directly via dynamic class override safely -->
+            <Setter Property="BorderBrush" Value="#1F222F"/>
+            <Setter Property="Height" Value="52"/>
+            <Setter Property="Margin" Value="24,0,24,20"/>
+            <Setter Property="Padding" Value="16,0"/>
+        </Style>
+        <Style Selector="Border#TransportBar.single-line Grid#SingleLineLayout">
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
+        <Style Selector="Border#TransportBar.single-line Grid#TacticalDeckLayout">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        
+        <!-- Stealth Mode Handle: Vertical Slice Hairline Trace Segments -->
+        <Style Selector="Border#TransportBar.single-line Thumb.playback-thumb">
+            <Setter Property="Width" Value="2"/>
+            <Setter Property="Height" Value="14"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Width="2" Height="14" Background="#66AFFF" Opacity="0" Name="WireThumb">
+                        <Border.Transitions>
+                            <Transitions>
+                                <DoubleTransition Property="Opacity" Duration="0:0:0.1"/>
+                            </Transitions>
+                        </Border.Transitions>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Border#TransportBar.single-line Slider.playback:pointerover /template/ Thumb.playback-thumb /template/ Border#WireThumb">
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+
+        <!-- MODE 2: COMMAND DECK OVERRIDES -->
+        <Style Selector="Border#TransportBar.tactical-deck">
+            <Setter Property="Background" Value="#F20C0C12"/>
+            <Setter Property="BorderBrush" Value="#332B88FF"/> <!-- Blue tactical accent line top border stroke -->
+            <Setter Property="Height" Value="92"/>
+            <Setter Property="Margin" Value="16,0,16,16"/>
+            <Setter Property="Padding" Value="20,12,20,12"/>
+        </Style>
+        <Style Selector="Border#TransportBar.tactical-deck Grid#SingleLineLayout">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="Border#TransportBar.tactical-deck Grid#TacticalDeckLayout">
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
+        
+        <!-- Tactical Deck Handle: Sleek Technical Rectangular Pill -->
+        <Style Selector="Border#TransportBar.tactical-deck Thumb.playback-thumb">
+            <Setter Property="Width" Value="6"/>
+            <Setter Property="Height" Value="12"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Width="6" Height="12" CornerRadius="1" Background="#C5CEE3" BorderBrush="#2B88FF" BorderThickness="1"/>
+                </ControlTemplate>
+            </Setter>
+        </Style>
     </Application.Styles>
 </Application>

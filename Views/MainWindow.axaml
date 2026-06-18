@@ -1,460 +1,208 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:primitives="using:Avalonia.Controls.Primitives"
         xmlns:controls="using:BlueJayPlayer.Controls"
         x:Class="BlueJayPlayer.Views.MainWindow"
         Title="BlueJay Player"
-        SystemDecorations="None"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
         WindowStartupLocation="CenterScreen"
         Background="Transparent">
 
-    <Window.Styles>
-        <Style Selector="Slider.playback">
-            <Setter Property="Minimum" Value="0"/>
-            <Setter Property="Maximum" Value="1"/>
-            <Setter Property="Value" Value="0"/>
-            <Setter Property="Height" Value="20"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Grid Name="SliderContainer" VerticalAlignment="Center" Height="20">
-                        <Border Background="Transparent" VerticalAlignment="Stretch"/>
-                        <Border Height="3" VerticalAlignment="Center" CornerRadius="1.5"
-                                Background="#232328" Margin="8,0"/>
-                        <primitives:Track
-                            Name="PART_Track"
-                            Minimum="{TemplateBinding Minimum}"
-                            Maximum="{TemplateBinding Maximum}"
-                            Value="{TemplateBinding Value, Mode=TwoWay}"
-                            IsDirectionReversed="False"
-                            Orientation="Horizontal"
-                            Margin="8,0">
-                            <primitives:Track.DecreaseButton>
-                                <RepeatButton Name="PART_DecreaseButton"
-                                              Classes="playback-track-decrease"
-                                              Focusable="False"
-                                              IsHitTestVisible="False"/>
-                            </primitives:Track.DecreaseButton>
-                            <primitives:Track.IncreaseButton>
-                                <RepeatButton Name="PART_IncreaseButton"
-                                              Classes="playback-track-increase"
-                                              Focusable="False"
-                                              IsHitTestVisible="False"/>
-                            </primitives:Track.IncreaseButton>
-                            <primitives:Track.Thumb>
-                                <Thumb Name="PART_Thumb" Classes="playback-thumb"/>
-                            </primitives:Track.Thumb>
-                        </primitives:Track>
-                    </Grid>
-                </ControlTemplate>
-            </Setter>
-        </Style>
 
-        <Style Selector="RepeatButton.playback-track-decrease">
-            <Setter Property="Background">
-                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
-                    <GradientStop Color="#2A7FDE" Offset="0"/>
-                    <GradientStop Color="#4BA3FF" Offset="1"/>
-                </LinearGradientBrush>
-            </Setter>
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Border Background="{TemplateBinding Background}"
-                            CornerRadius="1.5,0,0,1.5"
-                            Height="3"
-                            VerticalAlignment="Center"/>
-                </ControlTemplate>
-            </Setter>
-        </Style>
-
-        <Style Selector="RepeatButton.playback-track-increase">
-            <Setter Property="Background" Value="#232328"/>
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Border Background="{TemplateBinding Background}"
-                            CornerRadius="0,1.5,1.5,0"
-                            Height="3"
-                            VerticalAlignment="Center"/>
-                </ControlTemplate>
-            </Setter>
-        </Style>
-
-        <Style Selector="Thumb.playback-thumb">
-            <Setter Property="Width" Value="20"/>
-            <Setter Property="Height" Value="20"/>
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Grid Width="20" Height="20">
-                        <Ellipse Name="ThumbGlow" Width="18" Height="18"
-                                 Stroke="#3B9EFF" StrokeThickness="0.5"
-                                 Fill="Transparent" Opacity="0">
-                            <Ellipse.Transitions>
-                                <Transitions>
-                                    <DoubleTransition Property="Opacity" Duration="0:0:0.15"/>
-                                </Transitions>
-                            </Ellipse.Transitions>
-                        </Ellipse>
-                        <Ellipse Width="11" Height="11" Fill="#111116"/>
-                        <Ellipse Name="ThumbRing" Width="11" Height="11"
-                                 Stroke="#3B9EFF" StrokeThickness="1.5" Fill="Transparent">
-                            <Ellipse.Transitions>
-                                <Transitions>
-                                    <DoubleTransition Property="Width" Duration="0:0:0.15"/>
-                                    <DoubleTransition Property="Height" Duration="0:0:0.15"/>
-                                </Transitions>
-                            </Ellipse.Transitions>
-                        </Ellipse>
-                        <Ellipse Name="ThumbCore" Width="5" Height="5" Fill="#4AABFF">
-                            <Ellipse.Transitions>
-                                <Transitions>
-                                    <DoubleTransition Property="Width" Duration="0:0:0.15"/>
-                                    <DoubleTransition Property="Height" Duration="0:0:0.15"/>
-                                </Transitions>
-                            </Ellipse.Transitions>
-                        </Ellipse>
-                    </Grid>
-                </ControlTemplate>
-            </Setter>
-        </Style>
-
-        <Style Selector="Thumb.playback-thumb:pointerover /template/ Ellipse#ThumbGlow">
-            <Setter Property="Opacity" Value="0.35"/>
-        </Style>
-        <Style Selector="Thumb.playback-thumb:pointerover /template/ Ellipse#ThumbRing">
-            <Setter Property="Width" Value="13"/>
-            <Setter Property="Height" Value="13"/>
-        </Style>
-        <Style Selector="Thumb.playback-thumb:pointerover /template/ Ellipse#ThumbCore">
-            <Setter Property="Width" Value="7"/>
-            <Setter Property="Height" Value="7"/>
-        </Style>
-        <Style Selector="Thumb.playback-thumb:pressed /template/ Ellipse#ThumbGlow">
-            <Setter Property="Opacity" Value="0.5"/>
-        </Style>
-        <Style Selector="Thumb.playback-thumb:pressed /template/ Ellipse#ThumbRing">
-            <Setter Property="Width" Value="14"/>
-            <Setter Property="Height" Value="14"/>
-            <Setter Property="StrokeThickness" Value="2"/>
-        </Style>
-
-        <Style Selector="Slider.volume-mini">
-            <Setter Property="Minimum" Value="0"/>
-            <Setter Property="Maximum" Value="100"/>
-            <Setter Property="Height" Value="14"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Grid VerticalAlignment="Center" Height="14">
-                        <Border Background="Transparent" VerticalAlignment="Stretch"/>
-                        <primitives:Track
-                            Name="PART_Track"
-                            Minimum="{TemplateBinding Minimum}"
-                            Maximum="{TemplateBinding Maximum}"
-                            Value="{TemplateBinding Value, Mode=TwoWay}"
-                            Orientation="Horizontal">
-                            <primitives:Track.DecreaseButton>
-                                <RepeatButton Classes="volume-decrease" Focusable="False" IsHitTestVisible="False"/>
-                            </primitives:Track.DecreaseButton>
-                            <primitives:Track.IncreaseButton>
-                                <RepeatButton Classes="volume-increase" Focusable="False" IsHitTestVisible="False"/>
-                            </primitives:Track.IncreaseButton>
-                            <primitives:Track.Thumb>
-                                <Thumb Classes="volume-thumb"/>
-                            </primitives:Track.Thumb>
-                        </primitives:Track>
-                    </Grid>
-                </ControlTemplate>
-            </Setter>
-        </Style>
-
-        <Style Selector="RepeatButton.volume-decrease">
-            <Setter Property="Background" Value="#3B6FA0"/>
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Border Background="{TemplateBinding Background}" CornerRadius="1,0,0,1" Height="2" VerticalAlignment="Center"/>
-                </ControlTemplate>
-            </Setter>
-        </Style>
-        <Style Selector="RepeatButton.volume-increase">
-            <Setter Property="Background" Value="#232328"/>
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Border Background="{TemplateBinding Background}" CornerRadius="0,1,1,0" Height="2" VerticalAlignment="Center"/>
-                </ControlTemplate>
-            </Setter>
-        </Style>
-        <Style Selector="Thumb.volume-thumb">
-            <Setter Property="Width" Value="8"/>
-            <Setter Property="Height" Value="8"/>
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Ellipse Width="8" Height="8" Fill="#606066"/>
-                </ControlTemplate>
-            </Setter>
-        </Style>
-        <Style Selector="Thumb.volume-thumb:pointerover /template/ Ellipse">
-            <Setter Property="Fill" Value="#3B9EFF"/>
-        </Style>
-
-        <Style Selector="Button.transport-btn">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Foreground" Value="#50505C"/>
-            <Setter Property="Width" Value="32"/>
-            <Setter Property="Height" Value="32"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Focusable" Value="False"/>
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Border Name="BtnRoot"
-                            Background="{TemplateBinding Background}"
-                            CornerRadius="6"
-                            Width="32" Height="32"
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
-                                          Content="{TemplateBinding Content}"
-                                          Foreground="{TemplateBinding Foreground}"/>
-                        <Border.Transitions>
-                            <Transitions>
-                                <BrushTransition Property="Background" Duration="0:0:0.12"/>
-                            </Transitions>
-                        </Border.Transitions>
-                    </Border>
-                </ControlTemplate>
-            </Setter>
-        </Style>
-        <Style Selector="Button.transport-btn:pointerover /template/ Border#BtnRoot">
-            <Setter Property="Background" Value="#1A1A22"/>
-        </Style>
-        <Style Selector="Button.transport-btn:pressed /template/ Border#BtnRoot">
-            <Setter Property="Background" Value="#242432"/>
-        </Style>
-        <Style Selector="Button.transport-btn:pointerover">
-            <Setter Property="Foreground" Value="#9090A8"/>
-        </Style>
-
-        <Style Selector="Button.transport-btn-primary">
-            <Setter Property="Background" Value="#161620"/>
-            <Setter Property="BorderBrush" Value="#252530"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Width" Value="36"/>
-            <Setter Property="Height" Value="36"/>
-            <Setter Property="Foreground" Value="#BBBBC8"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Focusable" Value="False"/>
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Border Name="BtnRoot"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="18"
-                            Width="36" Height="36"
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
-                                          Content="{TemplateBinding Content}"
-                                          Foreground="{TemplateBinding Foreground}"/>
-                        <Border.Transitions>
-                            <Transitions>
-                                <BrushTransition Property="Background" Duration="0:0:0.12"/>
-                            </Transitions>
-                        </Border.Transitions>
-                    </Border>
-                </ControlTemplate>
-            </Setter>
-        </Style>
-        <Style Selector="Button.transport-btn-primary:pointerover /template/ Border#BtnRoot">
-            <Setter Property="Background" Value="#1E1E2C"/>
-            <Setter Property="BorderBrush" Value="#303042"/>
-        </Style>
-        <Style Selector="Button.transport-btn-primary:pressed /template/ Border#BtnRoot">
-            <Setter Property="Background" Value="#28283A"/>
-        </Style>
-    </Window.Styles>
-
-    <Border Name="RootBorder" CornerRadius="8" ClipToBounds="True" Background="#0E0E10" BorderBrush="#1C1C20" BorderThickness="1" DragDrop.AllowDrop="True">
+    <Border Name="RootBorder" CornerRadius="8" ClipToBounds="True" Background="#0C0C12" BorderBrush="#1F222F" BorderThickness="1" DragDrop.AllowDrop="True">
         <Grid Name="MainRootGrid" RowDefinitions="32,*" Background="Transparent" DragDrop.AllowDrop="True">
 
-            <Border Grid.Row="0" Background="#111114" BorderBrush="#181818" BorderThickness="0,0,0,0.5">
-                <Grid Name="CustomTitleBar" ColumnDefinitions="*,Auto">
+            <Border Grid.Row="0" Background="#09090D" BorderBrush="#14141A" BorderThickness="0,0,0,0.5">
+                <Grid Name="CustomTitleBar" ColumnDefinitions="*,Auto" Background="Transparent">
                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0" IsHitTestVisible="False">
-                        <Ellipse Width="5" Height="5" Fill="#3B9EFF" Opacity="0.65" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="B L U E J A Y"
-                                   FontFamily="Consolas"
-                                   FontSize="10"
-                                   Foreground="#555560"
-                                   VerticalAlignment="Center"/>
+                        <Ellipse Width="5" Height="5" Fill="#2B88FF" Opacity="0.8" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="B L U E J A Y" FontFamily="Consolas" FontSize="10" Foreground="#5C647C" VerticalAlignment="Center"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,0,6,0">
-                        <Border Background="#1A1A1E" BorderBrush="#252528" BorderThickness="0.5" CornerRadius="6" Margin="2,4">
-                            <Button Name="MinimizeButton" Content="—" Width="40" Height="24" Background="Transparent" BorderThickness="0" Foreground="#555558" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" FontSize="10" Focusable="False"/>
-                        </Border>
-                        <Border Background="#1A1A1E" BorderBrush="#252528" BorderThickness="0.5" CornerRadius="6" Margin="2,4">
-                            <Button Name="MaximizeButton" Content="▢" Width="40" Height="24" Background="Transparent" BorderThickness="0" Foreground="#555558" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" FontSize="10" Focusable="False"/>
-                        </Border>
-                        <Border Background="#1A1A1E" BorderBrush="#252528" BorderThickness="0.5" CornerRadius="6" Margin="2,4">
-                            <Button Name="CloseButton" Content="✕" Width="40" Height="24" Background="Transparent" BorderThickness="0" Foreground="#555558" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" FontSize="11" Focusable="False"/>
-                        </Border>
+                        <Button Name="MinimizeButton" Content="—" Width="40" Height="24" Background="Transparent" BorderThickness="0" Foreground="#5C647C" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" FontSize="10" Focusable="False"/>
+                        <Button Name="MaximizeButton" Content="▢" Width="40" Height="24" Background="Transparent" BorderThickness="0" Foreground="#5C647C" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" FontSize="10" Focusable="False"/>
+                        <Button Name="CloseButton" Content="✕" Width="40" Height="24" Background="Transparent" BorderThickness="0" Foreground="#5C647C" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" FontSize="11" Focusable="False"/>
                     </StackPanel>
                 </Grid>
             </Border>
 
             <Panel Grid.Row="1" Name="MainDropPanel" Background="Transparent" DragDrop.AllowDrop="True">
-
                 <controls:MpvVideoSurface Name="VideoSurface">
-
-                    <Panel Background="Transparent"
-                           HorizontalAlignment="Stretch"
-                           VerticalAlignment="Stretch">
+                    <Panel Background="Transparent" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
 
                         <Border Name="OsdCard" VerticalAlignment="Center" HorizontalAlignment="Center"
-                                Background="#D90E0E12" CornerRadius="10" Padding="16,12"
-                                BorderBrush="#25252E" BorderThickness="0.5"
-                                Opacity="0" IsHitTestVisible="False">
+                                Background="#E60C0C12" CornerRadius="8" Padding="16,12" BorderBrush="#1F222F" BorderThickness="0.5" Opacity="0" IsHitTestVisible="False">
                             <Border.Effect>
-                                <DropShadowEffect BlurRadius="10" Opacity="0.5" Color="Black" OffsetX="0" OffsetY="4"/>
+                                <DropShadowEffect BlurRadius="12" Opacity="0.5" Color="Black" OffsetX="0" OffsetY="4"/>
                             </Border.Effect>
                             <Border.Transitions>
                                 <Transitions>
-                                    <DoubleTransition Property="Opacity" Duration="0:0:0.25"/>
+                                    <DoubleTransition Property="Opacity" Duration="0:0:0.2"/>
                                 </Transitions>
                             </Border.Transitions>
-                            <Grid>
-                                <Border Height="1" VerticalAlignment="Top" Background="#10FFFFFF"/>
-                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,4,0,0">
-                                    <TextBlock Name="OsdIcon" Text="♪" Foreground="#4AABFF" FontSize="16" FontFamily="Consolas" VerticalAlignment="Center" Margin="0,0,2,0"/>
-                                    <TextBlock Name="OsdText" Text="Volume: 100%" Foreground="#FFFFFF" FontSize="14" FontWeight="Medium" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Grid>
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <TextBlock Name="OsdIcon" Text="🔊" Foreground="#2B88FF" FontSize="14" VerticalAlignment="Center"/>
+                                <TextBlock Name="OsdText" Text="Volume: 100%" Foreground="#C5CEE3" FontSize="13" FontWeight="Medium" VerticalAlignment="Center"/>
+                            </StackPanel>
                         </Border>
 
-                        <TextBlock Name="PlaceholderText" Text="Drop Media File Here"
-                                   Foreground="#606066" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                   FontSize="16" IsHitTestVisible="False"/>
+                        <TextBlock Name="PlaceholderText" Text="Drop Media File Here" Foreground="#5C647C" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="15" IsHitTestVisible="False"/>
 
-                        <Border Name="TransportBar"
-                                VerticalAlignment="Bottom"
-                                Opacity="0"
-                                Padding="20,8,20,12"
-                                BorderThickness="0,1,0,0"
-                                BorderBrush="#1C1C20"
-                                IsHitTestVisible="True"
-                                BoxShadow="0 -8 32 0 #66000000">
-                            <Border.Background>
-                                <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
-                                    <GradientStop Color="#00141416" Offset="0"/>
-                                    <GradientStop Color="#CC141416" Offset="0.5"/>
-                                    <GradientStop Color="#F2141416" Offset="1"/>
-                                </LinearGradientBrush>
-                            </Border.Background>
+                        <!-- Seek Hover Preview Card -->
+                        <Border Name="SeekPreviewCard" VerticalAlignment="Bottom" HorizontalAlignment="Left"
+                                Opacity="0" IsHitTestVisible="False" UseLayoutRounding="True" Margin="0,0,0,76" Background="#F20C0C12" CornerRadius="8" BorderBrush="#1F222F" BorderThickness="0.5" Padding="6">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="12" Opacity="0.5" Color="Black" OffsetX="0" OffsetY="4"/>
+                            </Border.Effect>
                             <Border.Transitions>
                                 <Transitions>
-                                    <DoubleTransition Property="Opacity" Duration="0:0:0.25"/>
+                                    <DoubleTransition Property="Opacity" Duration="0:0:0.1"/>
+                                </Transitions>
+                            </Border.Transitions>
+                            <StackPanel Orientation="Vertical">
+                                <Border Name="PreviewImageContainer" Width="160" Height="90" CornerRadius="6" BorderBrush="#2B88FF" BorderThickness="1" Padding="1" ClipToBounds="True" Background="#0C0C12">
+                                    <Image Name="PreviewImage" Stretch="UniformToFill"/>
+                                </Border>
+                                <TextBlock Name="PreviewTimeText" Text="00:00:00" FontFamily="Consolas" FontSize="11" FontWeight="Bold" Foreground="#C5CEE3" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Name="TransportBar"
+                                Classes="single-line" VerticalAlignment="Bottom"
+                                Opacity="0"
+                                CornerRadius="8"
+                                BorderThickness="1"
+                                IsHitTestVisible="True">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="20" Opacity="0.6" Color="Black" OffsetX="0" OffsetY="6"/>
+                            </Border.Effect>
+                            <Border.Transitions>
+                                <Transitions>
+                                    <DoubleTransition Property="Opacity" Duration="0:0:0.2"/>
                                 </Transitions>
                             </Border.Transitions>
 
-                            <Grid RowDefinitions="Auto,Auto" RowSpacing="6">
-
-                                <Grid Grid.Row="0" ColumnDefinitions="68,*,68" VerticalAlignment="Center">
-                                    <TextBlock Name="CurrentTimeText"
-                                               Grid.Column="0"
-                                               Text="00:00:00"
-                                               FontFamily="Consolas"
-                                               FontSize="11"
-                                               Foreground="#606066"
-                                               VerticalAlignment="Center"
-                                               LetterSpacing="0.5"/>
-                                    <Slider Name="PlaybackSlider"
-                                            Grid.Column="1"
-                                            Classes="playback"
-                                            Minimum="0"
-                                            Maximum="1"
-                                            Value="0"
-                                            Margin="12,0"
-                                            VerticalAlignment="Center"
-                                            Focusable="False"/>
-                                    <TextBlock Name="TotalDurationText"
-                                               Grid.Column="2"
-                                               Text="00:00:00"
-                                               FontFamily="Consolas"
-                                               FontSize="11"
-                                               Foreground="#606066"
-                                               TextAlignment="Right"
-                                               VerticalAlignment="Center"
-                                               LetterSpacing="0.5"/>
+                            <Grid RowDefinitions="*">
+                                <Grid Grid.Row="0" Name="SingleLineLayout" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto" VerticalAlignment="Center">
+                                    <Button Grid.Column="0" Name="SinglePlayPauseButton" Classes="transport-btn" ToolTip.Tip="Play / Pause">
+                                        <PathIcon Name="SinglePlayPauseIcon" Data="M8 5v14l11-7z" Width="12" Height="12"/>
+                                    </Button>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="8,0,12,0" Spacing="4" VerticalAlignment="Center">
+                                        <TextBlock Name="SingleCurrentTimeText" Text="00:00:00" FontFamily="Consolas" FontSize="11" Foreground="#C5CEE3"/>
+                                        <TextBlock Text="/" FontFamily="Consolas" FontSize="11" Foreground="#5C647C"/>
+                                        <TextBlock Name="SingleTotalDurationText" Text="00:00:00" FontFamily="Consolas" FontSize="11" Foreground="#5C647C"/>
+                                    </StackPanel>
+                                    
+                                    <Slider Grid.Column="2" Name="SinglePlaybackSlider" Classes="playback" Focusable="False"/>
+                                    
+                                    <Button Grid.Column="3" Name="SingleMuteButton" Classes="transport-btn" Margin="12,0,0,0" ToolTip.Tip="Mute">
+                                        <PathIcon Name="SingleVolumeIcon" Data="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" Width="12" Height="12"/>
+                                    </Button>
+                                    <Slider Grid.Column="4" Name="SingleVolumeSlider" Classes="volume-mini" Width="56" Margin="4,0,12,0" VerticalAlignment="Center" Focusable="False"/>
+                                    
+                                    <Button Grid.Column="5" Name="SingleLoopButton" Classes="transport-btn" ToolTip.Tip="Toggle Loop">
+                                        <PathIcon Data="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" Width="12" Height="12"/>
+                                    </Button>
+                                    <Button Grid.Column="6" Name="SingleAudioButton" Classes="transport-btn" ToolTip.Tip="Audio Tracks">
+                                        <PathIcon Data="M12 2c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7c0-4.97-4.03-9-9-9z" Width="12" Height="12"/>
+                                        <Button.Flyout>
+                                            <MenuFlyout/>
+                                        </Button.Flyout>
+                                    </Button>
+                                    <Button Grid.Column="7" Name="SingleSubtitleButton" Classes="transport-btn" ToolTip.Tip="Subtitles">
+                                        <PathIcon Data="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2z" Width="12" Height="12"/>
+                                        <Button.Flyout>
+                                            <MenuFlyout/>
+                                        </Button.Flyout>
+                                    </Button>
+                                    <Button Grid.Column="8" Name="SingleModeSwitchButton" Classes="transport-btn" ToolTip.Tip="Tactical Deck View Mode">
+                                        <PathIcon Data="M4 4h16v4H4V4zm0 6h16v10H4V10z" Width="12" Height="12"/>
+                                    </Button>
+                                    <Button Grid.Column="9" Name="SingleFullscreenButton" Classes="transport-btn" ToolTip.Tip="Toggle Fullscreen (F)">
+                                        <PathIcon Data="M5 5h5v2H7v3H5V5zm14 0h-5v2h3v3h2V5zM5 19h5v-2H7v-3H5v5zm14 0h-5v-2h3v-3h2v5z" Width="12" Height="12"/>
+                                    </Button>
                                 </Grid>
 
-                                <Grid Grid.Row="1"
-                                      ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*"
-                                      VerticalAlignment="Center">
-                                    <Button Name="SkipBackButton"
-                                            Grid.Column="1"
-                                            Classes="transport-btn"
-                                            ToolTip.Tip="Skip back 10s"
-                                            Margin="0,0,4,0">
-                                        <TextBlock Text="⏮" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    </Button>
-                                    <Button Name="PlayPauseButton"
-                                            Grid.Column="2"
-                                            Classes="transport-btn-primary"
-                                            ToolTip.Tip="Play / Pause"
-                                            Margin="4,0">
-                                        <TextBlock Name="PlayPauseIcon"
-                                                   Text="▶"
-                                                   FontSize="13"
-                                                   HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center"/>
-                                    </Button>
-                                    <Button Name="SkipForwardButton"
-                                            Grid.Column="3"
-                                            Classes="transport-btn"
-                                            ToolTip.Tip="Skip forward 10s"
-                                            Margin="4,0,0,0">
-                                        <TextBlock Text="⏭" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    </Button>
-                                    <Border Grid.Column="4" Width="1" Height="16" Background="#28282E" Margin="12,0" VerticalAlignment="Center"/>
-                                    <Button Name="MuteButton"
-                                            Grid.Column="5"
-                                            Classes="transport-btn"
-                                            ToolTip.Tip="Mute">
-                                        <TextBlock Name="VolumeIcon"
-                                                   Text="🔊"
-                                                   FontSize="12"
-                                                   HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center"/>
-                                    </Button>
-                                    <Slider Name="VolumeSlider"
-                                            Grid.Column="6"
-                                            Classes="volume-mini"
-                                            Minimum="0"
-                                            Maximum="100"
-                                            Value="100"
-                                            Width="72"
-                                            Margin="4,0,12,0"
-                                            VerticalAlignment="Center"
-                                            Focusable="False"/>
-                                    <Button Name="FullscreenButton"
-                                            Grid.Column="7"
-                                            Classes="transport-btn"
-                                            ToolTip.Tip="Toggle fullscreen (F)">
-                                        <TextBlock Text="⛶" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    </Button>
+                                <Grid Grid.Row="0" Name="TacticalDeckLayout" RowDefinitions="Auto,Auto" RowSpacing="4" VerticalAlignment="Center">
+                                    <Grid Grid.Row="0">
+                                        <Slider Name="DeckPlaybackSlider" Classes="playback" Focusable="False"/>
+                                    </Grid>
+                                    <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
+                                            <Button Name="DeckPlayPauseButton" Classes="transport-btn" ToolTip.Tip="Play / Pause">
+                                                <PathIcon Name="DeckPlayPauseIcon" Data="M8 5v14l11-7z" Width="12" Height="12"/>
+                                            </Button>
+                                            <Button Name="DeckSkipBackButton" Classes="transport-btn" ToolTip.Tip="Skip back 10s">
+                                                <PathIcon Data="M11 6l-6 6 6 6V6zm7 0l-6 6 6 6V6z" Width="12" Height="12"/>
+                                            </Button>
+                                            <Button Name="DeckSkipForwardButton" Classes="transport-btn" ToolTip.Tip="Skip forward 10s">
+                                                <PathIcon Data="M6 18l6-6-6-6v12zm7 0l6-6-6-6v12z" Width="12" Height="12"/>
+                                            </Button>
+                                            <Border Width="1" Height="12" Background="#1F222F" Margin="6,0,4,0" VerticalAlignment="Center"/>
+                                            <Button Name="DeckMuteButton" Classes="transport-btn" ToolTip.Tip="Mute">
+                                                <PathIcon Name="DeckVolumeIcon" Data="M3 9v6h4l5 5V4L7 9H3z" Width="12" Height="12"/>
+                                            </Button>
+                                            <Slider Name="DeckVolumeSlider" Classes="volume-mini" Width="60" VerticalAlignment="Center" Focusable="False"/>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
+                                            <TextBlock Name="DeckCurrentTimeText" Text="00:00:00" FontFamily="Consolas" FontSize="11" FontWeight="Medium" Foreground="#C5CEE3" VerticalAlignment="Center"/>
+                                            <TextBlock Text="|" FontFamily="Consolas" FontSize="10" Foreground="#1F222F" VerticalAlignment="Center"/>
+                                            <TextBlock Name="DeckTotalDurationText" Text="00:00:00" FontFamily="Consolas" FontSize="11" FontWeight="Medium" Foreground="#5C647C" VerticalAlignment="Center"/>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
+                                            <Button Name="DeckLoopButton" Classes="transport-btn" ToolTip.Tip="Toggle Loop">
+                                                <PathIcon Data="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" Width="12" Height="12"/>
+                                            </Button>
+                                            <Button Name="DeckAudioButton" Classes="transport-btn" ToolTip.Tip="Audio Tracks">
+                                                <PathIcon Data="M12 2c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7c0-4.97-4.03-9-9-9z" Width="12" Height="12"/>
+                                                <Button.Flyout>
+                                                    <MenuFlyout/>
+                                                </Button.Flyout>
+                                            </Button>
+                                            <Button Name="DeckSubtitleButton" Classes="transport-btn" ToolTip.Tip="Subtitles">
+                                                <PathIcon Data="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2z" Width="12" Height="12"/>
+                                                <Button.Flyout>
+                                                    <MenuFlyout/>
+                                                </Button.Flyout>
+                                            </Button>
+                                            <Button Name="DeckModeSwitchButton" Classes="transport-btn" ToolTip.Tip="Stealth Rail View Mode">
+                                                <PathIcon Data="M19 12H5v-2h14v2z" Width="12" Height="12"/>
+                                            </Button>
+                                            <Button Name="DeckFullscreenButton" Classes="transport-btn" ToolTip.Tip="Toggle Fullscreen (F)">
+                                                <PathIcon Data="M5 5h5v2H7v3H5V5zm14 0h-5v2h3v3h2V5zM5 19h5v-2H7v-3H5v5zm14 0h-5v-2h3v-3h2v5z" Width="12" Height="12"/>
+                                            </Button>
+                                        </StackPanel>
+                                    </Grid>
                                 </Grid>
                             </Grid>
                         </Border>
+
+                        <Grid Name="OverlayResizeGrid" ColumnDefinitions="6,*,6" RowDefinitions="*,6" IsHitTestVisible="True" VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
+                            <Border Grid.Row="0" Grid.Column="0" Background="Transparent" Cursor="LeftSide" Tag="West" PointerPressed="OnResizePointerPressed"/>
+                            <Border Grid.Row="0" Grid.Column="2" Background="Transparent" Cursor="RightSide" Tag="East" PointerPressed="OnResizePointerPressed"/>
+                            <Border Grid.Row="1" Grid.Column="0" Background="Transparent" Cursor="BottomLeftCorner" Tag="SouthWest" PointerPressed="OnResizePointerPressed"/>
+                            <Border Grid.Row="1" Grid.Column="1" Background="Transparent" Cursor="BottomSide" Tag="South" PointerPressed="OnResizePointerPressed"/>
+                            <Border Grid.Row="1" Grid.Column="2" Background="Transparent" Cursor="BottomRightCorner" Tag="SouthEast" PointerPressed="OnResizePointerPressed"/>
+                        </Grid>
 
                     </Panel>
                 </controls:MpvVideoSurface>
-
             </Panel>
+            
+            <Grid Grid.Row="0" Grid.RowSpan="2" Name="ResizeGrid" ColumnDefinitions="6,*,6" RowDefinitions="6,*,6" IsHitTestVisible="True">
+                <Border Grid.Row="0" Grid.Column="0" Background="Transparent" Cursor="TopLeftCorner" Tag="NorthWest" PointerPressed="OnResizePointerPressed"/>
+                <Border Grid.Row="0" Grid.Column="1" Background="Transparent" Cursor="TopSide" Tag="North" PointerPressed="OnResizePointerPressed"/>
+                <Border Grid.Row="0" Grid.Column="2" Background="Transparent" Cursor="TopRightCorner" Tag="NorthEast" PointerPressed="OnResizePointerPressed"/>
+                <Border Grid.Row="1" Grid.Column="0" Background="Transparent" Cursor="LeftSide" Tag="West" PointerPressed="OnResizePointerPressed"/>
+                <Border Grid.Row="1" Grid.Column="2" Background="Transparent" Cursor="RightSide" Tag="East" PointerPressed="OnResizePointerPressed"/>
+                <Border Grid.Row="2" Grid.Column="0" Background="Transparent" Cursor="BottomLeftCorner" Tag="SouthWest" PointerPressed="OnResizePointerPressed"/>
+                <Border Grid.Row="2" Grid.Column="1" Background="Transparent" Cursor="BottomSide" Tag="South" PointerPressed="OnResizePointerPressed"/>
+                <Border Grid.Row="2" Grid.Column="2" Background="Transparent" Cursor="BottomRightCorner" Tag="SouthEast" PointerPressed="OnResizePointerPressed"/>
+            </Grid>
 
         </Grid>
     </Border>

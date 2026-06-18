@@ -76,6 +76,7 @@ public class MpvVideoSurface : NativeControlHost
             Focusable = false
         };
 
+        _overlayWindow.Bind(Window.CursorProperty, _parentWindow.GetObservable(Window.CursorProperty));
         _overlayWindow.Bind(ContentControl.ContentProperty, this.GetObservable(ContentProperty));
 
         DragDrop.SetAllowDrop(_overlayWindow, true);
