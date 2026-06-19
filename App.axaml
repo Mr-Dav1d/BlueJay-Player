@@ -435,5 +435,10 @@
                 </Animation>
             </Style.Animations>
         </Style>
+
+        <!-- Sleek MenuFlyoutPresenter styling to enable scrollbar when items list goes offscreen -->
+        <Style Selector="MenuFlyoutPresenter">
+            <Setter Property="MaxHeight" Value="400"/>
+        </Style>
     </Application.Styles>
 </Application>

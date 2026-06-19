@@ -165,7 +165,7 @@
                             </Border.Transitions>
 
                             <Grid RowDefinitions="*">
-                                <Grid Grid.Row="0" Name="SingleLineLayout" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" VerticalAlignment="Center">
+                                <Grid Grid.Row="0" Name="SingleLineLayout" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" VerticalAlignment="Center">
                                     <Button Grid.Column="0" Name="SinglePlayPauseButton" Classes="transport-btn" ToolTip.Tip="Play / Pause">
                                         <PathIcon Name="SinglePlayPauseIcon" Data="M8 5v14l11-7z" Width="12" Height="12"/>
                                     </Button>
@@ -207,7 +207,15 @@
                                     <Button Grid.Column="9" Name="SingleFullscreenButton" Classes="transport-btn" ToolTip.Tip="Toggle Fullscreen (F)">
                                         <PathIcon Data="M5 5h5v2H7v3H5V5zm14 0h-5v2h3v3h2V5zM5 19h5v-2H7v-3H5v5zm14 0h-5v-2h3v-3h2v5z" Width="12" Height="12"/>
                                     </Button>
-                                    <Button Grid.Column="10" Name="SingleSidePanelButton" Classes="transport-btn" ToolTip.Tip="Toggle Side Panel">
+                                    <Button Grid.Column="10" Name="SingleHdrButton" Classes="transport-btn" ToolTip.Tip="Toggle HDR Pipeline">
+                                        <StackPanel Orientation="Horizontal" Spacing="3">
+                                            <PathIcon Name="SingleHdrIcon" Data="M12 22c5.52 0 10-4.48 10-10S17.52 2 12 2 2 6.48 2 12s4.48 10 10 10zm0-18c4.41 0 8 3.59 8 8s-3.59 8-8 8-8-3.59-8-8 3.59-8 8-8zm0 3c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5z" Width="12" Height="12"/>
+                                            <Border Name="SingleHdrBadge" Background="#1B243B" BorderBrush="#2B88FF" BorderThickness="0.5" CornerRadius="3" Padding="2,0" IsVisible="False" VerticalAlignment="Center">
+                                                <TextBlock Text="HDR" FontSize="8" FontWeight="Bold" Foreground="#66AFFF" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Grid.Column="11" Name="SingleSidePanelButton" Classes="transport-btn" ToolTip.Tip="Toggle Side Panel">
                                         <PathIcon Data="M3 4h18v2H3V4zm0 5h18v2H3V9zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" Width="12" Height="12"/>
                                     </Button>
                                 </Grid>
@@ -266,6 +274,14 @@
                                             <Button Name="DeckFullscreenButton" Classes="transport-btn" ToolTip.Tip="Toggle Fullscreen (F)">
                                                 <PathIcon Data="M5 5h5v2H7v3H5V5zm14 0h-5v2h3v3h2V5zM5 19h5v-2H7v-3H5v5zm14 0h-5v-2h3v-3h2v5z" Width="12" Height="12"/>
                                             </Button>
+                                            <Button Name="DeckHdrButton" Classes="transport-btn" ToolTip.Tip="Toggle HDR Pipeline">
+                                                <StackPanel Orientation="Horizontal" Spacing="3">
+                                                    <PathIcon Name="DeckHdrIcon" Data="M12 22c5.52 0 10-4.48 10-10S17.52 2 12 2 2 6.48 2 12s4.48 10 10 10zm0-18c4.41 0 8 3.59 8 8s-3.59 8-8 8-8-3.59-8-8 3.59-8 8-8zm0 3c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5z" Width="12" Height="12"/>
+                                                    <Border Name="DeckHdrBadge" Background="#1B243B" BorderBrush="#2B88FF" BorderThickness="0.5" CornerRadius="3" Padding="2,0" IsVisible="False" VerticalAlignment="Center">
+                                                        <TextBlock Text="HDR" FontSize="8" FontWeight="Bold" Foreground="#66AFFF" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                </StackPanel>
+                                            </Button>
                                             <Button Name="DeckSidePanelButton" Classes="transport-btn" ToolTip.Tip="Toggle Side Panel">
                                                 <PathIcon Data="M3 4h18v2H3V4zm0 5h18v2H3V9zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" Width="12" Height="12"/>
                                             </Button>
@@ -298,13 +314,15 @@
                 <Grid RowDefinitions="Auto,*" Margin="12">
                     <!-- Segmented Header -->
                     <Border Grid.Row="0" Background="#07070A" CornerRadius="6" BorderBrush="#1F222F" BorderThickness="1" Padding="2" Height="36" Margin="0,0,0,12">
-                        <Grid ColumnDefinitions="*,*">
+                        <Grid ColumnDefinitions="*,*,*">
                             <!-- Sliding backplate for active tab -->
                             <Border Name="QueueTabIndicator" Grid.Column="0" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="True"/>
                             <Border Name="DirectoryTabIndicator" Grid.Column="1" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="False"/>
+                            <Border Name="EngineTabIndicator" Grid.Column="2" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="False"/>
                             
                             <Button Grid.Column="0" Name="QueueTabButton" Classes="tab-btn active" Content="Queue"/>
                             <Button Grid.Column="1" Name="DirectoryTabButton" Classes="tab-btn" Content="Directory"/>
+                            <Button Grid.Column="2" Name="EngineTabButton" Classes="tab-btn" Content="Engine"/>
                         </Grid>
                     </Border>
 
@@ -424,6 +442,164 @@
                                     <Button Grid.Column="2" Name="NextPageButton" Classes="page-btn" Content="Next ▶" FontSize="10"/>
                                 </Grid>
                             </Border>
+                        </Grid>
+
+                        <!-- Engine Panel -->
+                        <Grid Name="EnginePanel" RowDefinitions="Auto,*" IsVisible="False">
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                <StackPanel Spacing="16" Margin="4,0,4,12">
+                                    <TextBlock Text="VIDEO ENGINE MATRIX" Foreground="#5C647C" FontSize="10" FontWeight="Bold" LetterSpacing="0.8"/>
+                                    
+                                    <!-- Analyze Mode Switch -->
+                                    <Border Background="#07070A" CornerRadius="6" BorderBrush="#1F222F" BorderThickness="1" Padding="2" Height="32">
+                                        <Grid ColumnDefinitions="*,*">
+                                            <Border Name="ManualModeIndicator" Grid.Column="0" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="True"/>
+                                            <Border Name="AnalyzeModeIndicator" Grid.Column="1" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="False"/>
+                                            
+                                            <Button Grid.Column="0" Name="ManualModeButton" Classes="tab-btn active" Content="MANUAL CONFIG"/>
+                                            <Button Grid.Column="1" Name="AnalyzeModeButton" Classes="tab-btn" Content="SMART ANALYZE"/>
+                                        </Grid>
+                                    </Border>
+                                     <!-- Smart Analyze Dashboard Panel (visible only when SMART ANALYZE MODE is active) -->
+                                     <Border Name="SmartAnalyzeDashboard" Background="#07070A" CornerRadius="8" BorderBrush="#1F222F" BorderThickness="1" Padding="12" IsVisible="False">
+                                         <StackPanel Spacing="14">
+                                             <!-- Section A: Display Identity Block -->
+                                             <StackPanel Spacing="4">
+                                                 <TextBlock Text="🖥️ ACTIVE DISPLAY HARDWARE" Foreground="#5C647C" FontSize="10" FontWeight="Bold" LetterSpacing="0.8"/>
+                                                 <Border Background="#0C0C12" CornerRadius="6" BorderBrush="#1F222F" BorderThickness="1" Padding="10">
+                                                     <StackPanel Spacing="3">
+                                                         <TextBlock Name="DashboardDisplayIdentity" Text="Detecting Display..." Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                                         <TextBlock Name="DashboardDisplayLuminance" Text="Peak Target: -- Nits" Foreground="#8A92AD" FontSize="10" FontFamily="Consolas"/>
+                                                     </StackPanel>
+                                                 </Border>
+                                             </StackPanel>
+
+                                             <!-- Section B: Active Calibration Metrics -->
+                                             <StackPanel Spacing="6">
+                                                 <TextBlock Text="🚀 CALIBRATION METRICS" Foreground="#5C647C" FontSize="10" FontWeight="Bold" LetterSpacing="0.8"/>
+                                                 <StackPanel Spacing="4">
+                                                     <!-- HDR Row -->
+                                                     <Grid ColumnDefinitions="*,Auto" Height="26" Margin="0,1">
+                                                         <TextBlock Text="HDR Pipeline:" Foreground="#8A92AD" FontSize="10" VerticalAlignment="Center"/>
+                                                         <Border Grid.Column="1" Background="#141E30" CornerRadius="4" BorderBrush="#2B88FF" BorderThickness="0.5" Padding="6,2">
+                                                             <TextBlock Name="DashboardHdrStatus" Text="INACTIVE" Foreground="#66AFFF" FontSize="9" FontFamily="Consolas" FontWeight="Bold" VerticalAlignment="Center"/>
+                                                         </Border>
+                                                     </Grid>
+                                                     <!-- Debanding Row -->
+                                                     <Grid ColumnDefinitions="*,Auto" Height="26" Margin="0,1">
+                                                         <TextBlock Text="Deband Filter:" Foreground="#8A92AD" FontSize="10" VerticalAlignment="Center"/>
+                                                         <Border Grid.Column="1" Background="#141E30" CornerRadius="4" BorderBrush="#2B88FF" BorderThickness="0.5" Padding="6,2">
+                                                             <TextBlock Name="DashboardDebandStatus" Text="OFF" Foreground="#66AFFF" FontSize="9" FontFamily="Consolas" FontWeight="Bold" VerticalAlignment="Center"/>
+                                                         </Border>
+                                                     </Grid>
+                                                     <!-- Upscaling Row -->
+                                                     <Grid ColumnDefinitions="*,Auto" Height="26" Margin="0,1">
+                                                         <TextBlock Text="Chroma Upscaler:" Foreground="#8A92AD" FontSize="10" VerticalAlignment="Center"/>
+                                                         <Border Grid.Column="1" Background="#141E30" CornerRadius="4" BorderBrush="#2B88FF" BorderThickness="0.5" Padding="6,2">
+                                                             <TextBlock Name="DashboardChromaStatus" Text="PERFORMANCE" Foreground="#66AFFF" FontSize="9" FontFamily="Consolas" FontWeight="Bold" VerticalAlignment="Center"/>
+                                                         </Border>
+                                                     </Grid>
+                                                 </StackPanel>
+                                             </StackPanel>
+
+                                             <!-- Section C: Ambient Advisor Frame -->
+                                             <StackPanel Spacing="4">
+                                                 <TextBlock Text="💡 HARDWARE OPTIMIZATION ADVISOR" Foreground="#5C647C" FontSize="10" FontWeight="Bold" LetterSpacing="0.8"/>
+                                                 <Border Background="#0C0C12" CornerRadius="6" BorderBrush="#1F222F" BorderThickness="1" Padding="10">
+                                                     <Grid ColumnDefinitions="Auto,*">
+                                                         <TextBlock Text="ℹ️" Foreground="#2B88FF" FontSize="12" Margin="0,0,8,0" VerticalAlignment="Top"/>
+                                                         <TextBlock Grid.Column="1" Name="DashboardAdvisorText" Text="Calibrating display parameters..." Foreground="#8A92AD" FontSize="10" FontStyle="Italic" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                                     </Grid>
+                                                 </Border>
+                                             </StackPanel>
+                                         </StackPanel>
+                                     </Border>
+
+                                    <!-- Manual Controls Group (locks and fades when Analyze Mode is active) -->
+                                    <StackPanel Name="ManualControlsContainer" Spacing="16">
+                                        <!-- HDR Pipeline Group -->
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="HDR PASS-THROUGH" Foreground="#8A92AD" FontSize="10" FontWeight="SemiBold"/>
+                                            <Border Background="#07070A" CornerRadius="6" BorderBrush="#1F222F" BorderThickness="1" Padding="2" Height="32">
+                                                <Grid ColumnDefinitions="*,*">
+                                                    <Border Name="HdrSdrIndicator" Grid.Column="0" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="True"/>
+                                                    <Border Name="HdrActiveIndicator" Grid.Column="1" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="False"/>
+                                                    
+                                                    <Button Grid.Column="0" Name="HdrSdrButton" Classes="tab-btn active" Content="SDR"/>
+                                                    <Button Grid.Column="1" Name="HdrActiveButton" Classes="tab-btn" Content="PQ 10-BIT"/>
+                                                </Grid>
+                                            </Border>
+                                        </StackPanel>
+
+                                        <!-- Debanding Filter Group -->
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="DEBANDING FILTER" Foreground="#8A92AD" FontSize="10" FontWeight="SemiBold"/>
+                                            <Border Background="#07070A" CornerRadius="6" BorderBrush="#1F222F" BorderThickness="1" Padding="2" Height="32">
+                                                <Grid ColumnDefinitions="*,*,*">
+                                                    <Border Name="DebandOffIndicator" Grid.Column="0" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="True"/>
+                                                    <Border Name="DebandLowIndicator" Grid.Column="1" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="False"/>
+                                                    <Border Name="DebandRefIndicator" Grid.Column="2" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="False"/>
+                                                    
+                                                    <Button Grid.Column="0" Name="DebandOffButton" Classes="tab-btn active" Content="Off"/>
+                                                    <Button Grid.Column="1" Name="DebandLowButton" Classes="tab-btn" Content="Low"/>
+                                                    <Button Grid.Column="2" Name="DebandRefButton" Classes="tab-btn" Content="REFERENCE"/>
+                                                </Grid>
+                                            </Border>
+                                        </StackPanel>
+
+                                        <!-- Chroma Upscaling Group -->
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="CHROMA UPSCALING" Foreground="#8A92AD" FontSize="10" FontWeight="SemiBold"/>
+                                            <Border Background="#07070A" CornerRadius="6" BorderBrush="#1F222F" BorderThickness="1" Padding="2" Height="32">
+                                                <Grid ColumnDefinitions="*,*">
+                                                    <Border Name="ScalePerfIndicator" Grid.Column="0" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="True"/>
+                                                    <Border Name="ScaleCinematicIndicator" Grid.Column="1" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="False"/>
+                                                    
+                                                    <Button Grid.Column="0" Name="ScalePerfButton" Classes="tab-btn active" Content="Performance"/>
+                                                    <Button Grid.Column="1" Name="ScaleCinematicButton" Classes="tab-btn" Content="CINEMATIC"/>
+                                                </Grid>
+                                            </Border>
+                                        </StackPanel>
+
+                                        <!-- Tone-Mapping Curve Group -->
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="TONE-MAPPING CURVE" Foreground="#8A92AD" FontSize="10" FontWeight="SemiBold"/>
+                                            <Button Name="ToneMappingButton" HorizontalAlignment="Stretch" Height="32" Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="6" Padding="12,0" HorizontalContentAlignment="Stretch">
+                                                <Grid ColumnDefinitions="*,Auto">
+                                                    <TextBlock Name="ToneMappingSelectedText" Text="bt.2446a" Foreground="#C5CEE3" FontSize="11" VerticalAlignment="Center"/>
+                                                    <PathIcon Grid.Column="1" Data="M7 10l5 5 5-5z" Width="10" Height="10" Foreground="#5C647C" VerticalAlignment="Center"/>
+                                                </Grid>
+                                                <Button.Flyout>
+                                                    <MenuFlyout Placement="Bottom">
+                                                        <MenuItem Header="BT.2446a" Name="ToneMapBt2446aItem"/>
+                                                        <MenuItem Header="Mobius" Name="ToneMapMobiusItem"/>
+                                                        <MenuItem Header="Reinhard" Name="ToneMapReinhardItem"/>
+                                                        <MenuItem Header="Hable" Name="ToneMapHableItem"/>
+                                                        <MenuItem Header="Spline" Name="ToneMapSplineItem"/>
+                                                        <MenuItem Header="Linear" Name="ToneMapLinearItem"/>
+                                                    </MenuFlyout>
+                                                </Button.Flyout>
+                                            </Button>
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <!-- Monitor Profile Override Section -->
+                                    <StackPanel Spacing="6" Name="HdrProfileSelectorContainer" Margin="0,4,0,0">
+                                        <TextBlock Text="MONITOR PROFILE (EDID OVERRIDE)" Foreground="#8A92AD" FontSize="10" FontWeight="SemiBold"/>
+                                        <Border Background="#07070A" CornerRadius="6" BorderBrush="#1F222F" BorderThickness="1" Padding="2" Height="32">
+                                            <Grid ColumnDefinitions="*,*,*">
+                                                <Border Name="HdrProfileAutoIndicator" Grid.Column="0" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="True"/>
+                                                <Border Name="HdrProfile400Indicator" Grid.Column="1" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="False"/>
+                                                <Border Name="HdrProfile1000Indicator" Grid.Column="2" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="False"/>
+                                                
+                                                <Button Grid.Column="0" Name="HdrProfileAutoButton" Classes="tab-btn active" Content="Auto-EDID"/>
+                                                <Button Grid.Column="1" Name="HdrProfile400Button" Classes="tab-btn" Content="400 Nit OLED"/>
+                                                <Button Grid.Column="2" Name="HdrProfile1000Button" Classes="tab-btn" Content="1000 Nit Peak"/>
+                                            </Grid>
+                                        </Border>
+                                    </StackPanel>
+                                </StackPanel>
+                            </ScrollViewer>
                         </Grid>
                     </Grid>
                 </Grid>

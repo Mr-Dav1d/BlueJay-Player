@@ -186,6 +186,91 @@ public partial class MainWindow : Window
     private Button? _nextPageButton;
     private Button[] _sidePanelButtons = Array.Empty<Button>();
 
+    // Video Engine Matrix UI References
+    private Button? _engineTabButton;
+    private Border? _engineTabIndicator;
+    private Panel? _enginePanel;
+    
+    // HDR Group
+    private Border? _hdrSdrIndicator;
+    private Border? _hdrActiveIndicator;
+    private Button? _hdrSdrButton;
+    private Button? _hdrActiveButton;
+    
+    // Debanding Group
+    private Border? _debandOffIndicator;
+    private Border? _debandLowIndicator;
+    private Border? _debandRefIndicator;
+    private Button? _debandOffButton;
+    private Button? _debandLowButton;
+    private Button? _debandRefButton;
+    
+    // Scaling Group
+    private Border? _scalePerfIndicator;
+    private Border? _scaleCinematicIndicator;
+    private Button? _scalePerfButton;
+    private Button? _scaleCinematicButton;
+    
+    // Tone-Mapping Group
+    private Button? _toneMappingButton;
+    private TextBlock? _toneMappingSelectedText;
+    private MenuItem? _toneMapBt2446aItem;
+    private MenuItem? _toneMapMobiusItem;
+    private MenuItem? _toneMapReinhardItem;
+    private MenuItem? _toneMapHableItem;
+    private MenuItem? _toneMapSplineItem;
+    private MenuItem? _toneMapLinearItem;
+
+    // HUD HDR Buttons
+    private Button? _singleHdrButton;
+    private Button? _deckHdrButton;
+    private Border? _singleHdrBadge;
+    private Border? _deckHdrBadge;
+    private PathIcon? _singleHdrIcon;
+    private PathIcon? _deckHdrIcon;
+    
+    // State variables for engine options
+    private bool _isHdrActive = false;
+    private string _currentDebandMode = "Off"; // Off, Low, Reference
+    private bool _isCinematicScaling = false;
+    private string _currentToneMapping = "bt.2446a";
+
+    // Phase 2 UI References
+    private Border? _manualModeIndicator;
+    private Border? _analyzeModeIndicator;
+    private Button? _manualModeButton;
+    private Button? _analyzeModeButton;
+    private Border? _smartAnalyzeDashboard;
+    private TextBlock? _dashboardDisplayIdentity;
+    private TextBlock? _dashboardDisplayLuminance;
+    private TextBlock? _dashboardHdrStatus;
+    private TextBlock? _dashboardDebandStatus;
+    private TextBlock? _dashboardChromaStatus;
+    private TextBlock? _dashboardAdvisorText;
+    private StackPanel? _manualControlsContainer;
+
+    private Border? _hdrProfileAutoIndicator;
+    private Border? _hdrProfile400Indicator;
+    private Border? _hdrProfile1000Indicator;
+    private Button? _hdrProfileAutoButton;
+    private Button? _hdrProfile400Button;
+    private Button? _hdrProfile1000Button;
+
+    // Backing snapshots for user manual configurations
+    private bool _manualHdrActive = false;
+    private string _manualDebandMode = "Off";
+    private bool _manualCinematicScaling = false;
+    private string _manualToneMapping = "bt.2446a";
+
+    // Dynamic Safety Valve and system variables
+    private bool _isAnalyzeModeActive = false;
+    private string _hdrDisplayProfileOverride = "Auto-EDID";
+    private int _systemTier = 2; // Default to Tier 2
+    private string _gpuName = "Unknown GPU";
+    private ulong _gpuVramBytes = 0;
+    private System.Threading.CancellationTokenSource? _safetyValveCts;
+    private long _lastDropFrameCount = 0;
+
     public MainWindow()
     {
         // InitializeComponent runs first to build the visual context tree from XAML
@@ -215,6 +300,10 @@ public partial class MainWindow : Window
         _prevPageButton = this.FindControl<Button>("PrevPageButton");
         _pageNumberText = this.FindControl<TextBlock>("PageNumberText");
         _nextPageButton = this.FindControl<Button>("NextPageButton");
+        
+        _engineTabButton = this.FindControl<Button>("EngineTabButton");
+        _engineTabIndicator = this.FindControl<Border>("EngineTabIndicator");
+        _enginePanel = this.FindControl<Panel>("EnginePanel");
 
         SetupSidePanel();
         
@@ -403,6 +492,20 @@ public partial class MainWindow : Window
         var singleSidePanelBtn = FindInTree<Button>(hudPanel, "SingleSidePanelButton");
         var deckSidePanelBtn = FindInTree<Button>(hudPanel, "DeckSidePanelButton");
         _sidePanelButtons = new Button[] { singleSidePanelBtn!, deckSidePanelBtn! }.Where(x => x != null).ToArray();
+
+        _singleHdrButton = FindInTree<Button>(hudPanel, "SingleHdrButton");
+        _deckHdrButton = FindInTree<Button>(hudPanel, "DeckHdrButton");
+        _singleHdrBadge = FindInTree<Border>(hudPanel, "SingleHdrBadge");
+        _deckHdrBadge = FindInTree<Border>(hudPanel, "DeckHdrBadge");
+        _singleHdrIcon = FindInTree<PathIcon>(hudPanel, "SingleHdrIcon");
+        _deckHdrIcon = FindInTree<PathIcon>(hudPanel, "DeckHdrIcon");
+
+        if (_singleHdrButton != null) _singleHdrButton.Click += (s, e) => ApplyHdrConfig(!_isHdrActive);
+        if (_deckHdrButton != null) _deckHdrButton.Click += (s, e) => ApplyHdrConfig(!_isHdrActive);
+
+        UpdateHdrUI();
+        UpdateDebandUI();
+        UpdateScalingUI();
 
         Log($"ResolveTransportControls: sliders={_playbackSliders.Length}, " +
             $"timeTexts={_currentTimeTexts.Length}, durTexts={_totalDurationTexts.Length}, " +
@@ -644,7 +747,7 @@ public partial class MainWindow : Window
                 InitializePreviewEngine();
 
                 // Safely allocate unmanaged strings to pass down to C++
-                IntPtr timePropPtr = Marshal.StringToHGlobalAnsi("time-pos");
+                IntPtr timePropPtr = Marshal.StringToHGlobalAnsi("playback-time");
                 IntPtr durationPropPtr = Marshal.StringToHGlobalAnsi("duration");
                 IntPtr volumePropPtr = Marshal.StringToHGlobalAnsi("volume");
                 IntPtr pausePropPtr = Marshal.StringToHGlobalAnsi("pause");
@@ -664,6 +767,12 @@ public partial class MainWindow : Window
                 _eventLoopCts = new CancellationTokenSource();
                 Task.Run(() => RunEventLoop(_eventLoopCts.Token));
 
+                // Apply default startup rendering profiles to the freshly initialized engine
+                ApplyHdrConfig(_isHdrActive);
+                ApplyDebandConfig(_currentDebandMode);
+                ApplyScalingConfig(_isCinematicScaling);
+                ApplyToneMappingConfig(_currentToneMapping);
+
                 if (!string.IsNullOrEmpty(_pendingFileToLoad))
                 {
                     PlayMediaFile(_pendingFileToLoad);
@@ -680,45 +789,63 @@ public partial class MainWindow : Window
         
         while (!token.IsCancellationRequested && _mpvHandle != IntPtr.Zero)
         {
-            IntPtr eventPtr = MpvWaitEvent(_mpvHandle, 1.0);
-            if (eventPtr == IntPtr.Zero) continue;
-
-            var mpvEvent = Marshal.PtrToStructure<MpvEvent>(eventPtr);
-
-            if (mpvEvent.EventId == 0) continue;
-
-            if (mpvEvent.EventId == 7) // MPV_EVENT_END_FILE
+            try
             {
-                if (mpvEvent.Data != IntPtr.Zero)
+                IntPtr eventPtr = MpvWaitEvent(_mpvHandle, 1.0);
+                if (eventPtr == IntPtr.Zero) continue;
+
+                var mpvEvent = Marshal.PtrToStructure<MpvEvent>(eventPtr);
+
+                if (mpvEvent.EventId == 0) continue;
+
+                if (mpvEvent.EventId == 7) // MPV_EVENT_END_FILE
                 {
-                    var endFileEvent = Marshal.PtrToStructure<MpvEventEndFile>(mpvEvent.Data);
-                    Log($"RunEventLoop: MPV_EVENT_END_FILE received. Reason: {endFileEvent.Reason}, Error: {endFileEvent.Error}");
-                    
-                    // Reason 0 = MPV_END_FILE_REASON_EOF (ended naturally)
-                    if (endFileEvent.Reason == 0)
+                    if (mpvEvent.Data != IntPtr.Zero)
                     {
-                        Log("RunEventLoop: Video completed naturally. Advancing queue.");
-                        PlayNextInQueue();
+                        var endFileEvent = Marshal.PtrToStructure<MpvEventEndFile>(mpvEvent.Data);
+                        Log($"RunEventLoop: MPV_EVENT_END_FILE received. Reason: {endFileEvent.Reason}, Error: {endFileEvent.Error}");
+                        
+                        // Reason 0 = MPV_END_FILE_REASON_EOF (ended naturally)
+                        if (endFileEvent.Reason == 0)
+                        {
+                            Log("RunEventLoop: Video completed naturally. Advancing queue.");
+                            PlayNextInQueue();
+                        }
+                    }
+                }
+                else if (mpvEvent.EventId == 8) // MPV_EVENT_FILE_LOADED
+                {
+                    Log("RunEventLoop: MPV_EVENT_FILE_LOADED received. Auto-running Smart Analyze if active.");
+                    if (_isAnalyzeModeActive)
+                    {
+                        EvaluateActiveDisplayHardware();
+                        EvaluateSystemHardware();
+                        RunAutomatedRuleChain();
+                        TriggerOsdHUD("🔎", "SMART ANALYZE ACTIVE: OPTIMIZED CONFIG");
+                    }
+                }
+                else if (mpvEvent.EventId == 22) // MPV_EVENT_PROPERTY_CHANGE
+                {
+                    if (mpvEvent.Data == IntPtr.Zero) continue;
+
+                    var prop = Marshal.PtrToStructure<MpvEventProperty>(mpvEvent.Data);
+                    string propName = Marshal.PtrToStringAnsi(prop.Name) ?? string.Empty;
+
+                    if (prop.Format == 5 && prop.Data != IntPtr.Zero)
+                    {
+                        double doubleVal = Marshal.PtrToStructure<double>(prop.Data);
+                        ProcessObservedProperty(propName, doubleVal);
+                    }
+                    else if (prop.Format == 6 && prop.Data != IntPtr.Zero)
+                    {
+                        int flagVal = Marshal.ReadInt32(prop.Data);
+                        ProcessObservedPropertyFlag(propName, flagVal);
                     }
                 }
             }
-            else if (mpvEvent.EventId == 22) // MPV_EVENT_PROPERTY_CHANGE
+            catch (Exception ex)
             {
-                if (mpvEvent.Data == IntPtr.Zero) continue;
-
-                var prop = Marshal.PtrToStructure<MpvEventProperty>(mpvEvent.Data);
-                string propName = Marshal.PtrToStringAnsi(prop.Name) ?? string.Empty;
-
-                if (prop.Format == 5 && prop.Data != IntPtr.Zero)
-                {
-                    double doubleVal = Marshal.PtrToStructure<double>(prop.Data);
-                    ProcessObservedProperty(propName, doubleVal);
-                }
-                else if (prop.Format == 6 && prop.Data != IntPtr.Zero)
-                {
-                    int flagVal = Marshal.ReadInt32(prop.Data);
-                    ProcessObservedPropertyFlag(propName, flagVal);
-                }
+                Log($"RunEventLoop Tick Error: {ex.Message}");
             }
         }
         Log("Event loop exited.");
@@ -737,52 +864,63 @@ public partial class MainWindow : Window
 
     private void ProcessObservedProperty(string propertyName, double value)
     {
-        switch (propertyName)
+        try
         {
-            case "time-pos":
-                if (!double.IsNaN(value) && !double.IsInfinity(value) && value >= 0)
-                {
-                    int currentSecond = (int)Math.Floor(value);
-                    if (currentSecond != _lastLoggedSecond)
+            switch (propertyName)
+            {
+                case "playback-time":
+                case "time-pos":
+                    if (!double.IsNaN(value) && !double.IsInfinity(value) && value >= 0)
                     {
-                        _lastLoggedSecond = currentSecond;
-                        LogEngineEvent($"Playback Engine Time Tick: {currentSecond}s");
+                        int currentSecond = (int)Math.Floor(value);
+                        if (currentSecond != _lastLoggedSecond)
+                        {
+                            _lastLoggedSecond = currentSecond;
+                            LogEngineEvent($"Playback Engine Time Tick: {currentSecond}s");
+                        }
+                        _playbackPosition = value;
+                        UpdateTransportUI(_playbackPosition, _playbackDuration);
                     }
-                    _playbackPosition = value;
-                    UpdateTransportUI(_playbackPosition, _playbackDuration);
-                }
-                break;
+                    break;
 
-            case "duration":
-                if (!double.IsNaN(value) && !double.IsInfinity(value) && value > 0)
-                {
-                    LogEngineEvent($"Playback Engine Track Total Duration: {value:F2}s");
-                    _playbackDuration = value;
-                    UpdateTransportUI(_playbackPosition, _playbackDuration);
-                    LoadChapters();
-                    PopulateAudioTracks();
-                    PopulateSubtitleTracks();
-                    UpdatePreviewContainerAspect();
-                }
-                break;
+                case "duration":
+                    if (!double.IsNaN(value) && !double.IsInfinity(value) && value > 0)
+                    {
+                        LogEngineEvent($"Playback Engine Track Total Duration: {value:F2}s");
+                        _playbackDuration = value;
+                        UpdateTransportUI(_playbackPosition, _playbackDuration);
+                        LoadChapters();
+                        PopulateAudioTracks();
+                        PopulateSubtitleTracks();
+                        UpdatePreviewContainerAspect();
 
-            case "volume":
-                if (double.IsNaN(value) || double.IsInfinity(value)) return;
-                int roundedVol = (int)Math.Round(value);
-                LogEngineEvent($"Playback Engine Master Volume Altered: {roundedVol}%");
-                TriggerOsdHUD("🔊", $"Vol {roundedVol}%");
-                Dispatcher.UIThread.Post(() =>
-                {
-                    _isVolumeUpdatingFromMpv = true;
-                    foreach (var slider in _volumeSliders)
-                        slider.Value = value;
-                    _isVolumeUpdatingFromMpv = false;
-                    if (value > 0) _isMuted = false;
-                    foreach (var icon in _volumeIcons)
-                        icon.Data = StreamGeometry.Parse(_isMuted ? VolumeMuteSvg : VolumeHighSvg);
-                });
-                UpdateVolumeAmplifiedClass(value);
-                break;
+                        // Run Automated Rule Chain if Smart Analyze mode is active
+                        RunAutomatedRuleChain();
+                    }
+                    break;
+
+                case "volume":
+                    if (double.IsNaN(value) || double.IsInfinity(value)) return;
+                    int roundedVol = (int)Math.Round(value);
+                    LogEngineEvent($"Playback Engine Master Volume Altered: {roundedVol}%");
+                    TriggerOsdHUD("🔊", $"Vol {roundedVol}%");
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        _isVolumeUpdatingFromMpv = true;
+                        foreach (var slider in _volumeSliders)
+                            slider.Value = value;
+                        _isVolumeUpdatingFromMpv = false;
+                        if (value > 0) _isMuted = false;
+                        foreach (var icon in _volumeIcons)
+                            icon.Data = StreamGeometry.Parse(_isMuted ? VolumeMuteSvg : VolumeHighSvg);
+                    });
+                    UpdateVolumeAmplifiedClass(value);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            Log($"Error in ProcessObservedProperty for {propertyName}: {ex.Message}");
         }
     }
 
@@ -895,59 +1033,66 @@ public partial class MainWindow : Window
     {
         if (_mpvHandle == IntPtr.Zero || !_isEngineInitialized) return;
 
-        string? countStr = GetMpvPropertyString("track-list/count");
-        if (!int.TryParse(countStr, out int count)) count = 0;
-
-        var audioTracks = new System.Collections.Generic.List<(int id, string title, string lang, bool selected)>();
-
-        for (int i = 0; i < count; i++)
+        try
         {
-            string? type = GetMpvPropertyString($"track-list/{i}/type");
-            if (type == "audio")
+            string? countStr = GetMpvPropertyString("track-list/count");
+            if (!int.TryParse(countStr, out int count)) count = 0;
+
+            var audioTracks = new System.Collections.Generic.List<(int id, string title, string lang, bool selected)>();
+
+            for (int i = 0; i < count; i++)
             {
-                string? idStr = GetMpvPropertyString($"track-list/{i}/id");
-                if (int.TryParse(idStr, out int id))
+                string? type = GetMpvPropertyString($"track-list/{i}/type");
+                if (type == "audio")
                 {
-                    string title = GetMpvPropertyString($"track-list/{i}/title") ?? "";
-                    string lang = GetMpvPropertyString($"track-list/{i}/lang") ?? "";
-                    string selectedStr = GetMpvPropertyString($"track-list/{i}/selected") ?? "no";
-                    bool selected = selectedStr == "yes";
-                    audioTracks.Add((id, title, lang, selected));
+                    string? idStr = GetMpvPropertyString($"track-list/{i}/id");
+                    if (int.TryParse(idStr, out int id))
+                    {
+                        string title = GetMpvPropertyString($"track-list/{i}/title") ?? "";
+                        string lang = GetMpvPropertyString($"track-list/{i}/lang") ?? "";
+                        string selectedStr = GetMpvPropertyString($"track-list/{i}/selected") ?? "no";
+                        bool selected = selectedStr == "yes";
+                        audioTracks.Add((id, title, lang, selected));
+                    }
                 }
             }
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                foreach (var flyout in _audioFlyouts)
+                {
+                    flyout.Items.Clear();
+
+                    if (audioTracks.Count == 0)
+                    {
+                        flyout.Items.Add(new MenuItem { Header = "No Audio Tracks", IsEnabled = false });
+                        continue;
+                    }
+
+                    foreach (var track in audioTracks)
+                    {
+                        string label = $"Track {track.id}";
+                        if (!string.IsNullOrEmpty(track.title) || !string.IsNullOrEmpty(track.lang))
+                        {
+                            label += $" ({(string.IsNullOrEmpty(track.title) ? track.lang : track.title)})";
+                        }
+                        if (track.selected)
+                        {
+                            label = "✓ " + label;
+                        }
+
+                        var item = new MenuItem { Header = label };
+                        int trackId = track.id;
+                        item.Click += (s, e) => SelectAudioTrack(trackId);
+                        flyout.Items.Add(item);
+                    }
+                }
+            });
         }
-
-        Dispatcher.UIThread.Post(() =>
+        catch (Exception ex)
         {
-            foreach (var flyout in _audioFlyouts)
-            {
-                flyout.Items.Clear();
-
-                if (audioTracks.Count == 0)
-                {
-                    flyout.Items.Add(new MenuItem { Header = "No Audio Tracks", IsEnabled = false });
-                    continue;
-                }
-
-                foreach (var track in audioTracks)
-                {
-                    string label = $"Track {track.id}";
-                    if (!string.IsNullOrEmpty(track.title) || !string.IsNullOrEmpty(track.lang))
-                    {
-                        label += $" ({(string.IsNullOrEmpty(track.title) ? track.lang : track.title)})";
-                    }
-                    if (track.selected)
-                    {
-                        label = "✓ " + label;
-                    }
-
-                    var item = new MenuItem { Header = label };
-                    int trackId = track.id;
-                    item.Click += (s, e) => SelectAudioTrack(trackId);
-                    flyout.Items.Add(item);
-                }
-            }
-        });
+            Log($"Error populating audio tracks: {ex.Message}");
+        }
     }
 
     private void SelectAudioTrack(int trackId)
@@ -961,149 +1106,156 @@ public partial class MainWindow : Window
     {
         if (_mpvHandle == IntPtr.Zero || !_isEngineInitialized) return;
 
-        string? countStr = GetMpvPropertyString("track-list/count");
-        if (!int.TryParse(countStr, out int count)) count = 0;
-
-        var subTracks = new System.Collections.Generic.List<(int id, string title, string lang, bool selected)>();
-
-        string? currentSid = GetMpvPropertyString("sid");
-        bool subsDisabled = string.IsNullOrEmpty(currentSid) || currentSid == "no";
-
-        for (int i = 0; i < count; i++)
+        try
         {
-            string? type = GetMpvPropertyString($"track-list/{i}/type");
-            if (type == "sub")
+            string? countStr = GetMpvPropertyString("track-list/count");
+            if (!int.TryParse(countStr, out int count)) count = 0;
+
+            var subTracks = new System.Collections.Generic.List<(int id, string title, string lang, bool selected)>();
+
+            string? currentSid = GetMpvPropertyString("sid");
+            bool subsDisabled = string.IsNullOrEmpty(currentSid) || currentSid == "no";
+
+            for (int i = 0; i < count; i++)
             {
-                string? idStr = GetMpvPropertyString($"track-list/{i}/id");
-                if (int.TryParse(idStr, out int id))
+                string? type = GetMpvPropertyString($"track-list/{i}/type");
+                if (type == "sub")
                 {
-                    string title = GetMpvPropertyString($"track-list/{i}/title") ?? "";
-                    string lang = GetMpvPropertyString($"track-list/{i}/lang") ?? "";
-                    string selectedStr = GetMpvPropertyString($"track-list/{i}/selected") ?? "no";
-                    bool selected = selectedStr == "yes" && !subsDisabled;
-                    subTracks.Add((id, title, lang, selected));
+                    string? idStr = GetMpvPropertyString($"track-list/{i}/id");
+                    if (int.TryParse(idStr, out int id))
+                    {
+                        string title = GetMpvPropertyString($"track-list/{i}/title") ?? "";
+                        string lang = GetMpvPropertyString($"track-list/{i}/lang") ?? "";
+                        string selectedStr = GetMpvPropertyString($"track-list/{i}/selected") ?? "no";
+                        bool selected = selectedStr == "yes" && !subsDisabled;
+                        subTracks.Add((id, title, lang, selected));
+                    }
                 }
             }
-        }
 
-        Dispatcher.UIThread.Post(() =>
-        {
-            foreach (var flyout in _subtitleFlyouts)
+            Dispatcher.UIThread.Post(() =>
             {
-                flyout.Items.Clear();
-
-                // A) Direct File Injector
-                var addExternalItem = new MenuItem { Header = "+ Add External Subtitle File..." };
-                addExternalItem.Click += async (s, e) =>
+                foreach (var flyout in _subtitleFlyouts)
                 {
-                    var topLevel = TopLevel.GetTopLevel(this);
-                    if (topLevel != null)
+                    flyout.Items.Clear();
+
+                    // A) Direct File Injector
+                    var addExternalItem = new MenuItem { Header = "+ Add External Subtitle File..." };
+                    addExternalItem.Click += async (s, e) =>
                     {
-                        var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+                        var topLevel = TopLevel.GetTopLevel(this);
+                        if (topLevel != null)
                         {
-                            Title = "Select Subtitle File",
-                            AllowMultiple = false,
-                            FileTypeFilter = new[]
+                            var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
                             {
-                                new FilePickerFileType("Subtitle Files")
+                                Title = "Select Subtitle File",
+                                AllowMultiple = false,
+                                FileTypeFilter = new[]
                                 {
-                                    Patterns = new[] { "*.srt", "*.vtt", "*.ass", "*.sub", "*.ssa" }
+                                    new FilePickerFileType("Subtitle Files")
+                                    {
+                                        Patterns = new[] { "*.srt", "*.vtt", "*.ass", "*.sub", "*.ssa" }
+                                    }
+                                }
+                            });
+
+                            if (files != null && files.Count > 0)
+                            {
+                                var localPath = files[0].Path.LocalPath;
+                                if (!string.IsNullOrEmpty(localPath))
+                                {
+                                    SendCommand(_mpvHandle, "sub-add", localPath);
+                                    TriggerOsdHUD("📝", "External Sub Added");
+                                    Log($"Injected external subtitle file: {localPath}");
+                                    PopulateSubtitleTracks();
                                 }
                             }
-                        });
-
-                        if (files != null && files.Count > 0)
-                        {
-                            var localPath = files[0].Path.LocalPath;
-                            if (!string.IsNullOrEmpty(localPath))
-                            {
-                                SendCommand(_mpvHandle, "sub-add", localPath);
-                                TriggerOsdHUD("📝", "External Sub Added");
-                                Log($"Injected external subtitle file: {localPath}");
-                                PopulateSubtitleTracks();
-                            }
                         }
-                    }
-                };
-                flyout.Items.Add(addExternalItem);
+                    };
+                    flyout.Items.Add(addExternalItem);
 
-                // B) Real-time Style Overrides
-                var settingsMenu = new MenuItem { Header = "A_ Subtitle Settings" };
+                    // B) Real-time Style Overrides
+                    var settingsMenu = new MenuItem { Header = "A_ Subtitle Settings" };
 
-                var sizeMenu = new MenuItem { Header = "Text Size" };
-                sizeMenu.Items.Add(CreateSizeItem("Small (0.8x)", 0.8));
-                sizeMenu.Items.Add(CreateSizeItem("Normal (1.0x)", 1.0));
-                sizeMenu.Items.Add(CreateSizeItem("Large (1.3x)", 1.3));
-                sizeMenu.Items.Add(CreateSizeItem("Huge (1.6x)", 1.6));
-                settingsMenu.Items.Add(sizeMenu);
+                    var sizeMenu = new MenuItem { Header = "Text Size" };
+                    sizeMenu.Items.Add(CreateSizeItem("Small (0.8x)", 0.8));
+                    sizeMenu.Items.Add(CreateSizeItem("Normal (1.0x)", 1.0));
+                    sizeMenu.Items.Add(CreateSizeItem("Large (1.3x)", 1.3));
+                    sizeMenu.Items.Add(CreateSizeItem("Huge (1.6x)", 1.6));
+                    settingsMenu.Items.Add(sizeMenu);
 
-                var colorMenu = new MenuItem { Header = "Text Color" };
-                colorMenu.Items.Add(CreateColorItem("White", "#FFFFFF"));
-                colorMenu.Items.Add(CreateColorItem("Yellow", "#FFFF00"));
-                colorMenu.Items.Add(CreateColorItem("Blue", "#66AFFF"));
-                settingsMenu.Items.Add(colorMenu);
+                    var colorMenu = new MenuItem { Header = "Text Color" };
+                    colorMenu.Items.Add(CreateColorItem("White", "#FFFFFF"));
+                    colorMenu.Items.Add(CreateColorItem("Yellow", "#FFFF00"));
+                    colorMenu.Items.Add(CreateColorItem("Blue", "#66AFFF"));
+                    settingsMenu.Items.Add(colorMenu);
 
-                var posMenu = new MenuItem { Header = "Positioning" };
-                posMenu.Items.Add(CreatePosItem("High", 80));
-                posMenu.Items.Add(CreatePosItem("Normal", 36));
-                posMenu.Items.Add(CreatePosItem("Low", 15));
-                settingsMenu.Items.Add(posMenu);
+                    var posMenu = new MenuItem { Header = "Positioning" };
+                    posMenu.Items.Add(CreatePosItem("High", 80));
+                    posMenu.Items.Add(CreatePosItem("Normal", 36));
+                    posMenu.Items.Add(CreatePosItem("Low", 15));
+                    settingsMenu.Items.Add(posMenu);
 
-                flyout.Items.Add(settingsMenu);
+                    flyout.Items.Add(settingsMenu);
 
-                // C) Audio Synchronization Shifter
-                var syncMenu = new MenuItem { Header = "⏱ Subtitle Sync" };
+                    // C) Audio Synchronization Shifter
+                    var syncMenu = new MenuItem { Header = "⏱ Subtitle Sync" };
 
-                var delayItem = new MenuItem { Header = "Delay 100ms (-0.1s)" };
-                delayItem.Click += (s, e) => AdjustSubDelay(-0.1);
-                syncMenu.Items.Add(delayItem);
+                    var delayItem = new MenuItem { Header = "Delay 100ms (-0.1s)" };
+                    delayItem.Click += (s, e) => AdjustSubDelay(-0.1);
+                    syncMenu.Items.Add(delayItem);
 
-                var advanceItem = new MenuItem { Header = "Advance 100ms (+0.1s)" };
-                advanceItem.Click += (s, e) => AdjustSubDelay(0.1);
-                syncMenu.Items.Add(advanceItem);
+                    var advanceItem = new MenuItem { Header = "Advance 100ms (+0.1s)" };
+                    advanceItem.Click += (s, e) => AdjustSubDelay(0.1);
+                    syncMenu.Items.Add(advanceItem);
 
-                var resetItem = new MenuItem { Header = "Reset Sync" };
-                resetItem.Click += (s, e) => AdjustSubDelay(0, true);
-                syncMenu.Items.Add(resetItem);
+                    var resetItem = new MenuItem { Header = "Reset Sync" };
+                    resetItem.Click += (s, e) => AdjustSubDelay(0, true);
+                    syncMenu.Items.Add(resetItem);
 
-                flyout.Items.Add(syncMenu);
+                    flyout.Items.Add(syncMenu);
 
-                // Separator before the standard track list
-                flyout.Items.Add(new Separator());
-
-                string disableLabel = "Disable Subtitles";
-                if (subsDisabled)
-                {
-                    disableLabel = "✓ " + disableLabel;
-                }
-                var disableItem = new MenuItem { Header = disableLabel };
-                disableItem.Click += (s, e) => SelectSubtitleTrack(-1);
-                flyout.Items.Add(disableItem);
-
-                if (subTracks.Count > 0)
-                {
+                    // Separator before the standard track list
                     flyout.Items.Add(new Separator());
-                }
 
-                foreach (var track in subTracks)
-                {
-                    string label = $"Subtitle {track.id}";
-                    if (!string.IsNullOrEmpty(track.title) || !string.IsNullOrEmpty(track.lang))
+                    string disableLabel = "Disable Subtitles";
+                    if (subsDisabled)
                     {
-                        label += $" ({(string.IsNullOrEmpty(track.title) ? track.lang : track.title)})";
+                        disableLabel = "✓ " + disableLabel;
                     }
-                    if (track.selected)
+                    var disableItem = new MenuItem { Header = disableLabel };
+                    disableItem.Click += (s, e) => SelectSubtitleTrack(-1);
+                    flyout.Items.Add(disableItem);
+
+                    if (subTracks.Count > 0)
                     {
-                        label = "✓ " + label;
+                        flyout.Items.Add(new Separator());
                     }
 
-                    var item = new MenuItem { Header = label };
-                    int trackId = track.id;
-                    item.Click += (s, e) => SelectSubtitleTrack(trackId);
-                    flyout.Items.Add(item);
+                    foreach (var track in subTracks)
+                    {
+                        string label = $"Subtitle {track.id}";
+                        if (!string.IsNullOrEmpty(track.title) || !string.IsNullOrEmpty(track.lang))
+                        {
+                            label += $" ({(string.IsNullOrEmpty(track.title) ? track.lang : track.title)})";
+                        }
+                        if (track.selected)
+                        {
+                            label = "✓ " + label;
+                        }
+
+                        var item = new MenuItem { Header = label };
+                        int trackId = track.id;
+                        item.Click += (s, e) => SelectSubtitleTrack(trackId);
+                        flyout.Items.Add(item);
+                    }
                 }
-            }
-        });
+            });
+        }
+        catch (Exception ex)
+        {
+            Log($"Error populating subtitle tracks: {ex.Message}");
+        }
     }
 
     private void SelectSubtitleTrack(int trackId)
@@ -1135,7 +1287,7 @@ public partial class MainWindow : Window
                 return;
             }
 
-            if (total > 0)
+            if (total >= 0)
             {
                 foreach (var slider in _playbackSliders)
                     slider.Maximum = total;
@@ -1366,6 +1518,12 @@ public partial class MainWindow : Window
             Log($"PlayMediaFile skipped — engine not ready (handle={_mpvHandle}, initialized={_isEngineInitialized}). File: {filePath}");
             return;
         }
+
+        // Reset seek bar tracking variables immediately when loading a new video file
+        _playbackPosition = 0;
+        _playbackDuration = 0;
+        _lastLoggedSecond = -1;
+        UpdateTransportUI(0, 0);
 
         // Use the dispatcher to safely update UI components from our background process
         Dispatcher.UIThread.Post(() =>
@@ -2095,9 +2253,82 @@ public partial class MainWindow : Window
 
         if (_queueTabButton != null) _queueTabButton.Click += (s, e) => SwitchTab("Queue");
         if (_directoryTabButton != null) _directoryTabButton.Click += (s, e) => SwitchTab("Directory");
+        if (_engineTabButton != null) _engineTabButton.Click += (s, e) => SwitchTab("Engine");
         if (_upDirectoryButton != null) _upDirectoryButton.Click += (s, e) => NavigateUpDirectory();
         if (_prevPageButton != null) _prevPageButton.Click += (s, e) => NavigatePage(-1);
         if (_nextPageButton != null) _nextPageButton.Click += (s, e) => NavigatePage(1);
+
+        // Resolve Video Engine Matrix controls
+        _manualModeIndicator = this.FindControl<Border>("ManualModeIndicator");
+        _analyzeModeIndicator = this.FindControl<Border>("AnalyzeModeIndicator");
+        _manualModeButton = this.FindControl<Button>("ManualModeButton");
+        _analyzeModeButton = this.FindControl<Button>("AnalyzeModeButton");
+        _smartAnalyzeDashboard = this.FindControl<Border>("SmartAnalyzeDashboard");
+        _dashboardDisplayIdentity = this.FindControl<TextBlock>("DashboardDisplayIdentity");
+        _dashboardDisplayLuminance = this.FindControl<TextBlock>("DashboardDisplayLuminance");
+        _dashboardHdrStatus = this.FindControl<TextBlock>("DashboardHdrStatus");
+        _dashboardDebandStatus = this.FindControl<TextBlock>("DashboardDebandStatus");
+        _dashboardChromaStatus = this.FindControl<TextBlock>("DashboardChromaStatus");
+        _dashboardAdvisorText = this.FindControl<TextBlock>("DashboardAdvisorText");
+        _manualControlsContainer = this.FindControl<StackPanel>("ManualControlsContainer");
+
+        _hdrProfileAutoIndicator = this.FindControl<Border>("HdrProfileAutoIndicator");
+        _hdrProfile400Indicator = this.FindControl<Border>("HdrProfile400Indicator");
+        _hdrProfile1000Indicator = this.FindControl<Border>("HdrProfile1000Indicator");
+        _hdrProfileAutoButton = this.FindControl<Button>("HdrProfileAutoButton");
+        _hdrProfile400Button = this.FindControl<Button>("HdrProfile400Button");
+        _hdrProfile1000Button = this.FindControl<Button>("HdrProfile1000Button");
+
+        if (_manualModeButton != null) _manualModeButton.Click += (s, e) => { DisableAnalyzeMode(); UpdateAnalyzeModeSwitchUI(); };
+        if (_analyzeModeButton != null) _analyzeModeButton.Click += (s, e) => { EnableAnalyzeMode(); UpdateAnalyzeModeSwitchUI(); };
+
+        if (_hdrProfileAutoButton != null) _hdrProfileAutoButton.Click += (s, e) => SetHdrProfileOverride("Auto-EDID");
+        if (_hdrProfile400Button != null) _hdrProfile400Button.Click += (s, e) => SetHdrProfileOverride("400 Nits OLED");
+        if (_hdrProfile1000Button != null) _hdrProfile1000Button.Click += (s, e) => SetHdrProfileOverride("1000 Nits Peak");
+
+        _hdrSdrIndicator = this.FindControl<Border>("HdrSdrIndicator");
+        _hdrActiveIndicator = this.FindControl<Border>("HdrActiveIndicator");
+        _hdrSdrButton = this.FindControl<Button>("HdrSdrButton");
+        _hdrActiveButton = this.FindControl<Button>("HdrActiveButton");
+        
+        if (_hdrSdrButton != null) _hdrSdrButton.Click += (s, e) => ApplyHdrConfig(false);
+        if (_hdrActiveButton != null) _hdrActiveButton.Click += (s, e) => ApplyHdrConfig(true);
+        
+        _debandOffIndicator = this.FindControl<Border>("DebandOffIndicator");
+        _debandLowIndicator = this.FindControl<Border>("DebandLowIndicator");
+        _debandRefIndicator = this.FindControl<Border>("DebandRefIndicator");
+        _debandOffButton = this.FindControl<Button>("DebandOffButton");
+        _debandLowButton = this.FindControl<Button>("DebandLowButton");
+        _debandRefButton = this.FindControl<Button>("DebandRefButton");
+        
+        if (_debandOffButton != null) _debandOffButton.Click += (s, e) => ApplyDebandConfig("Off");
+        if (_debandLowButton != null) _debandLowButton.Click += (s, e) => ApplyDebandConfig("Low");
+        if (_debandRefButton != null) _debandRefButton.Click += (s, e) => ApplyDebandConfig("Reference");
+        
+        _scalePerfIndicator = this.FindControl<Border>("ScalePerfIndicator");
+        _scaleCinematicIndicator = this.FindControl<Border>("ScaleCinematicIndicator");
+        _scalePerfButton = this.FindControl<Button>("ScalePerfButton");
+        _scaleCinematicButton = this.FindControl<Button>("ScaleCinematicButton");
+        
+        if (_scalePerfButton != null) _scalePerfButton.Click += (s, e) => ApplyScalingConfig(false);
+        if (_scaleCinematicButton != null) _scaleCinematicButton.Click += (s, e) => ApplyScalingConfig(true);
+        
+        _toneMappingButton = this.FindControl<Button>("ToneMappingButton");
+        _toneMappingSelectedText = this.FindControl<TextBlock>("ToneMappingSelectedText");
+        
+        _toneMapBt2446aItem = this.FindControl<MenuItem>("ToneMapBt2446aItem");
+        _toneMapMobiusItem = this.FindControl<MenuItem>("ToneMapMobiusItem");
+        _toneMapReinhardItem = this.FindControl<MenuItem>("ToneMapReinhardItem");
+        _toneMapHableItem = this.FindControl<MenuItem>("ToneMapHableItem");
+        _toneMapSplineItem = this.FindControl<MenuItem>("ToneMapSplineItem");
+        _toneMapLinearItem = this.FindControl<MenuItem>("ToneMapLinearItem");
+        
+        if (_toneMapBt2446aItem != null) _toneMapBt2446aItem.Click += (s, e) => ApplyToneMappingConfig("bt.2446a");
+        if (_toneMapMobiusItem != null) _toneMapMobiusItem.Click += (s, e) => ApplyToneMappingConfig("mobius");
+        if (_toneMapReinhardItem != null) _toneMapReinhardItem.Click += (s, e) => ApplyToneMappingConfig("reinhard");
+        if (_toneMapHableItem != null) _toneMapHableItem.Click += (s, e) => ApplyToneMappingConfig("hable");
+        if (_toneMapSplineItem != null) _toneMapSplineItem.Click += (s, e) => ApplyToneMappingConfig("spline");
+        if (_toneMapLinearItem != null) _toneMapLinearItem.Click += (s, e) => ApplyToneMappingConfig("linear");
 
         _shuffleButton = this.FindControl<Button>("ShuffleButton");
         if (_shuffleButton != null)
@@ -2166,36 +2397,20 @@ public partial class MainWindow : Window
     {
         _activeTab = tabName;
 
-        if (tabName == "Queue")
-        {
-            if (_queueTabButton != null && !_queueTabButton.Classes.Contains("active"))
-            {
-                _queueTabButton.Classes.Add("active");
-            }
-            if (_directoryTabButton != null)
-            {
-                _directoryTabButton.Classes.Remove("active");
-            }
-            if (_queueTabIndicator != null) _queueTabIndicator.IsVisible = true;
-            if (_directoryTabIndicator != null) _directoryTabIndicator.IsVisible = false;
-            if (_queuePanel != null) _queuePanel.IsVisible = true;
-            if (_directoryPanel != null) _directoryPanel.IsVisible = false;
-        }
-        else // Directory
-        {
-            if (_directoryTabButton != null && !_directoryTabButton.Classes.Contains("active"))
-            {
-                _directoryTabButton.Classes.Add("active");
-            }
-            if (_queueTabButton != null)
-            {
-                _queueTabButton.Classes.Remove("active");
-            }
-            if (_queueTabIndicator != null) _queueTabIndicator.IsVisible = false;
-            if (_directoryTabIndicator != null) _directoryTabIndicator.IsVisible = true;
-            if (_queuePanel != null) _queuePanel.IsVisible = false;
-            if (_directoryPanel != null) _directoryPanel.IsVisible = true;
+        if (_queueTabButton != null) ToggleClass(_queueTabButton, "active", tabName == "Queue");
+        if (_directoryTabButton != null) ToggleClass(_directoryTabButton, "active", tabName == "Directory");
+        if (_engineTabButton != null) ToggleClass(_engineTabButton, "active", tabName == "Engine");
 
+        if (_queueTabIndicator != null) _queueTabIndicator.IsVisible = (tabName == "Queue");
+        if (_directoryTabIndicator != null) _directoryTabIndicator.IsVisible = (tabName == "Directory");
+        if (_engineTabIndicator != null) _engineTabIndicator.IsVisible = (tabName == "Engine");
+
+        if (_queuePanel != null) _queuePanel.IsVisible = (tabName == "Queue");
+        if (_directoryPanel != null) _directoryPanel.IsVisible = (tabName == "Directory");
+        if (_enginePanel != null) _enginePanel.IsVisible = (tabName == "Engine");
+
+        if (tabName == "Directory")
+        {
             // Load default folder if not set
             if (string.IsNullOrEmpty(_currentDirectoryPath))
             {
@@ -2223,7 +2438,7 @@ public partial class MainWindow : Window
         try
         {
             var dirInfo = new DirectoryInfo(path);
-            var entries = dirInfo.GetFileSystemInfos();
+            var entries = dirInfo.GetFileSystemInfos().Where(e => e.Exists).ToList();
 
             var folders = entries.Where(e => (e.Attributes & FileAttributes.Directory) != 0)
                                  .OrderBy(e => e.Name)
@@ -2468,6 +2683,8 @@ public partial class MainWindow : Window
 
     private void EnqueueFile(string filePath)
     {
+        if (!File.Exists(filePath)) return;
+
         string name = Path.GetFileName(filePath);
         string durationText = "--:--";
 
@@ -2856,7 +3073,727 @@ public partial class MainWindow : Window
             }
         });
     }
+
+    // --- Video Engine Matrix Applicators & Helpers ---
+    private void ApplyHdrConfig(bool enable)
+    {
+        if (!_isAnalyzeModeActive)
+        {
+            _manualHdrActive = enable;
+        }
+
+        _isHdrActive = enable;
+        if (_mpvHandle == IntPtr.Zero || !_isEngineInitialized) 
+        {
+            UpdateHdrUI();
+            return;
+        }
+        
+        Log($"Applying HDR configuration -> Active: {enable}");
+
+        // Save play state and pause the player temporarily if playing (Pause-Guard)
+        bool wasPlaying = !_isPaused;
+        if (wasPlaying)
+        {
+            SetMpvPropertyString(_mpvHandle, "pause", "yes");
+        }
+
+        if (enable)
+        {
+            SetMpvPropertyString(_mpvHandle, "vo", "gpu-next");
+            SetMpvPropertyString(_mpvHandle, "gpu-api", "d3d11");
+            SetMpvPropertyString(_mpvHandle, "d3d11-output-csp", "pq");
+            SetMpvPropertyString(_mpvHandle, "target-colorspace-hint", "yes");
+            SetMpvPropertyString(_mpvHandle, "hdr-compute-peak", "yes");
+        }
+        else
+        {
+            // Standard fallback
+            SetMpvPropertyString(_mpvHandle, "d3d11-output-csp", "srgb");
+            SetMpvPropertyString(_mpvHandle, "target-colorspace-hint", "no");
+            SetMpvPropertyString(_mpvHandle, "hdr-compute-peak", "no");
+        }
+
+        // Resume playback if it was playing previously
+        if (wasPlaying)
+        {
+            SetMpvPropertyString(_mpvHandle, "pause", "no");
+        }
+
+        UpdateHdrUI();
+    }
+
+    private void ApplyDebandConfig(string mode)
+    {
+        if (!_isAnalyzeModeActive)
+        {
+            _manualDebandMode = mode;
+        }
+
+        _currentDebandMode = mode;
+        if (_mpvHandle == IntPtr.Zero || !_isEngineInitialized)
+        {
+            UpdateDebandUI();
+            return;
+        }
+
+        Log($"Applying Deband configuration -> Mode: {mode}");
+        switch (mode)
+        {
+            case "Disabled":
+            case "Off":
+                SetMpvPropertyString(_mpvHandle, "deband", "no");
+                break;
+            case "Low":
+                SetMpvPropertyString(_mpvHandle, "deband", "yes");
+                SetMpvPropertyString(_mpvHandle, "deband-iterations", "1");
+                SetMpvPropertyString(_mpvHandle, "deband-threshold", "32");
+                break;
+            case "Reference":
+                SetMpvPropertyString(_mpvHandle, "deband", "yes");
+                SetMpvPropertyString(_mpvHandle, "deband-iterations", "3");
+                SetMpvPropertyString(_mpvHandle, "deband-threshold", "48");
+                SetMpvPropertyString(_mpvHandle, "deband-range", "16");
+                SetMpvPropertyString(_mpvHandle, "deband-grain", "32");
+                break;
+        }
+        
+        UpdateDebandUI();
+    }
+
+    private void ApplyScalingConfig(bool highFidelity)
+    {
+        if (!_isAnalyzeModeActive)
+        {
+            _manualCinematicScaling = highFidelity;
+        }
+
+        _isCinematicScaling = highFidelity;
+        if (_mpvHandle == IntPtr.Zero || !_isEngineInitialized)
+        {
+            UpdateScalingUI();
+            return;
+        }
+
+        Log($"Applying Scaling configuration -> HighFidelity (Cinematic): {highFidelity}");
+        if (highFidelity)
+        {
+            SetMpvPropertyString(_mpvHandle, "scale", "ewa_lanczos");
+            SetMpvPropertyString(_mpvHandle, "cscale", "ewa_lanczos");
+            SetMpvPropertyString(_mpvHandle, "dscale", "mitchell");
+            SetMpvPropertyString(_mpvHandle, "scale-antiring", "0.7");
+            SetMpvPropertyString(_mpvHandle, "cscale-antiring", "0.7");
+            SetMpvPropertyString(_mpvHandle, "sigmoid-upscaling", "yes");
+        }
+        else
+        {
+            SetMpvPropertyString(_mpvHandle, "scale", "mitchell");
+            SetMpvPropertyString(_mpvHandle, "cscale", "mitchell");
+            SetMpvPropertyString(_mpvHandle, "scale-antiring", "0.0");
+            SetMpvPropertyString(_mpvHandle, "cscale-antiring", "0.0");
+            SetMpvPropertyString(_mpvHandle, "sigmoid-upscaling", "no");
+        }
+        
+        UpdateScalingUI();
+    }
+
+    private void ApplyToneMappingConfig(string algorithm)
+    {
+        if (!_isAnalyzeModeActive)
+        {
+            _manualToneMapping = algorithm;
+        }
+
+        _currentToneMapping = algorithm;
+        
+        if (_toneMappingSelectedText != null)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (_toneMappingSelectedText != null)
+                {
+                    _toneMappingSelectedText.Text = algorithm;
+                }
+            });
+        }
+
+        if (_mpvHandle == IntPtr.Zero || !_isEngineInitialized) return;
+
+        Log($"Applying Tone-Mapping configuration -> Algorithm: {algorithm}");
+        SetMpvPropertyString(_mpvHandle, "tone-mapping", algorithm);
+    }
+
+    private void UpdateHdrUI()
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            bool enable = _isHdrActive;
+            // Indicators
+            if (_hdrSdrIndicator != null) _hdrSdrIndicator.IsVisible = !enable;
+            if (_hdrActiveIndicator != null) _hdrActiveIndicator.IsVisible = enable;
+            
+            // Buttons active classes
+            if (_hdrSdrButton != null) ToggleClass(_hdrSdrButton, "active", !enable);
+            if (_hdrActiveButton != null) ToggleClass(_hdrActiveButton, "active", enable);
+            
+            // HUD buttons color and badge
+            var glowBrush = enable ? SolidColorBrush.Parse("#66AFFF") : SolidColorBrush.Parse("#5C647C");
+            
+            if (_singleHdrIcon != null) _singleHdrIcon.Foreground = glowBrush;
+            if (_deckHdrIcon != null) _deckHdrIcon.Foreground = glowBrush;
+            
+            if (_singleHdrBadge != null) _singleHdrBadge.IsVisible = enable;
+            if (_deckHdrBadge != null) _deckHdrBadge.IsVisible = enable;
+        });
+    }
+    
+    private void UpdateDebandUI()
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            string mode = _currentDebandMode;
+            if (_debandOffIndicator != null) _debandOffIndicator.IsVisible = (mode == "Off" || mode == "Disabled");
+            if (_debandLowIndicator != null) _debandLowIndicator.IsVisible = (mode == "Low");
+            if (_debandRefIndicator != null) _debandRefIndicator.IsVisible = (mode == "Reference");
+            
+            if (_debandOffButton != null) ToggleClass(_debandOffButton, "active", (mode == "Off" || mode == "Disabled"));
+            if (_debandLowButton != null) ToggleClass(_debandLowButton, "active", (mode == "Low"));
+            if (_debandRefButton != null) ToggleClass(_debandRefButton, "active", (mode == "Reference"));
+        });
+    }
+    
+    private void UpdateScalingUI()
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            bool isCinematic = _isCinematicScaling;
+            if (_scalePerfIndicator != null) _scalePerfIndicator.IsVisible = !isCinematic;
+            if (_scaleCinematicIndicator != null) _scaleCinematicIndicator.IsVisible = isCinematic;
+            
+            if (_scalePerfButton != null) ToggleClass(_scalePerfButton, "active", !isCinematic);
+            if (_scaleCinematicButton != null) ToggleClass(_scaleCinematicButton, "active", isCinematic);
+        });
+    }
+    
+    private void ToggleClass(Button button, string className, bool add)
+    {
+        if (add)
+        {
+            if (!button.Classes.Contains(className))
+                button.Classes.Add(className);
+        }
+        else
+        {
+            button.Classes.Remove(className);
+        }
+    }
+
+    // --- Phase 2: SMART ANALYZE MODE IMPLEMENTATION ---
+    [DllImport("dxgi.dll", SetLastError = true)]
+    private static extern int CreateDXGIFactory1(ref Guid riid, out IDXGIFactory ppFactory);
+
+    private void UpdateAnalyzeModeSwitchUI()
+    {
+        bool active = _isAnalyzeModeActive;
+        if (_manualModeIndicator != null) _manualModeIndicator.IsVisible = !active;
+        if (_analyzeModeIndicator != null) _analyzeModeIndicator.IsVisible = active;
+
+        if (_manualModeButton != null) ToggleClass(_manualModeButton, "active", !active);
+        if (_analyzeModeButton != null) ToggleClass(_analyzeModeButton, "active", active);
+        
+        if (_smartAnalyzeDashboard != null)
+        {
+            _smartAnalyzeDashboard.IsVisible = active;
+        }
+    }
+
+    private void EnableAnalyzeMode()
+    {
+        _isAnalyzeModeActive = true;
+        
+        // Fades/Locks Phase 1 manual options controls
+        if (_manualControlsContainer != null)
+        {
+            _manualControlsContainer.Opacity = 0.3;
+            _manualControlsContainer.IsHitTestVisible = false;
+        }
+
+        Log("> SMART ANALYZE MODE ENGAGED. INIT HARDWARE EVALUATION...");
+        
+        EvaluateActiveDisplayHardware();
+        EvaluateSystemHardware();
+        RunAutomatedRuleChain();
+        StartSafetyValveLoop();
+    }
+
+    private void DisableAnalyzeMode()
+    {
+        _isAnalyzeModeActive = false;
+        StopSafetyValveLoop();
+
+        // Restore Phase 1 manual options controls visual states
+        if (_manualControlsContainer != null)
+        {
+            _manualControlsContainer.Opacity = 1.0;
+            _manualControlsContainer.IsHitTestVisible = true;
+        }
+
+        Log("> SMART ANALYZE MODE DEACTIVATED. RESTORING USER SNAPSHOT...");
+
+        // Re-pipe saved manual configurations instantly to unmanaged handle
+        ApplyHdrConfig(_manualHdrActive);
+        ApplyDebandConfig(_manualDebandMode);
+        ApplyScalingConfig(_manualCinematicScaling);
+        ApplyToneMappingConfig(_manualToneMapping);
+    }
+
+    private void SetHdrProfileOverride(string profileName)
+    {
+        _hdrDisplayProfileOverride = profileName;
+
+        if (_hdrProfileAutoIndicator != null) _hdrProfileAutoIndicator.IsVisible = (profileName == "Auto-EDID");
+        if (_hdrProfile400Indicator != null) _hdrProfile400Indicator.IsVisible = (profileName == "400 Nits OLED");
+        if (_hdrProfile1000Indicator != null) _hdrProfile1000Indicator.IsVisible = (profileName == "1000 Nits Peak");
+
+        if (_hdrProfileAutoButton != null) ToggleClass(_hdrProfileAutoButton, "active", profileName == "Auto-EDID");
+        if (_hdrProfile400Button != null) ToggleClass(_hdrProfile400Button, "active", profileName == "400 Nits OLED");
+        if (_hdrProfile1000Button != null) ToggleClass(_hdrProfile1000Button, "active", profileName == "1000 Nits Peak");
+
+        Log($"> MONITOR OSD OVERRIDE SELECT: {profileName}");
+
+        EvaluateActiveDisplayHardware();
+    }
+
+#pragma warning disable CA1416 // Windows only DXGI/Marshal calls
+    private void EvaluateActiveDisplayHardware()
+    {
+        float minLuminance = 0.005f;
+        float maxLuminance = 300f;
+        bool isOled = false;
+        bool dxgiSuccess = false;
+
+        try
+        {
+            Guid factoryGuid = new Guid("7b7166ec-21c7-44ae-901a-31a3596a4a11");
+            int hr = CreateDXGIFactory1(ref factoryGuid, out IDXGIFactory factory);
+            if (hr == 0 && factory != null)
+            {
+                hr = factory.EnumAdapters(0, out IDXGIAdapter adapter);
+                if (hr == 0 && adapter != null)
+                {
+                    hr = adapter.EnumOutputs(0, out IntPtr ppOutput);
+                    if (hr == 0 && ppOutput != IntPtr.Zero)
+                    {
+                        Guid uuidIDXGIOutput6 = new Guid("068346e8-aaec-4b84-add7-137f513f77a1");
+                        hr = Marshal.QueryInterface(ppOutput, in uuidIDXGIOutput6, out IntPtr ppOutput6);
+                        if (hr == 0 && ppOutput6 != IntPtr.Zero)
+                        {
+                            // Call via vtable pointer offset to prevent mapping out 27 inherited COM methods
+                            IntPtr vtable = Marshal.ReadIntPtr(ppOutput6);
+                            IntPtr getDesc1Ptr = Marshal.ReadIntPtr(vtable, 26 * IntPtr.Size);
+                            var getDesc1 = (GetDesc1Delegate)Marshal.GetDelegateForFunctionPointer(getDesc1Ptr, typeof(GetDesc1Delegate));
+
+                            hr = getDesc1(ppOutput6, out DXGI_OUTPUT_DESC1 desc);
+                            if (hr == 0)
+                            {
+                                minLuminance = desc.MinLuminance;
+                                maxLuminance = desc.MaxLuminance;
+                                isOled = (minLuminance == 0.0f);
+                                dxgiSuccess = true;
+                                Log($"DXGI Display Evaluated: {desc.DeviceName}, MinLum={minLuminance}, MaxLum={maxLuminance}");
+                            }
+                            Marshal.Release(ppOutput6);
+                        }
+                        Marshal.Release(ppOutput);
+                    }
+                    Marshal.Release(Marshal.GetIUnknownForObject(adapter));
+                }
+                Marshal.Release(Marshal.GetIUnknownForObject(factory));
+            }
+        }
+        catch (Exception ex)
+        {
+            Log($"DXGI Hardware Evaluation failed gracefully: {ex.Message}");
+        }
+
+        ApplyMonitorProfile(isOled, minLuminance, maxLuminance, dxgiSuccess);
+    }
+
+    private void ApplyMonitorProfile(bool isOled, float minLuminance, float maxLuminance, bool dxgiSuccess)
+    {
+        double dxgiCalculatedMaxLuminance = maxLuminance;
+        // Override Check Logic Example
+        double targetPeak = (_hdrDisplayProfileOverride == "400 Nits OLED") ? 400.0 :
+                            (_hdrDisplayProfileOverride == "1000 Nits Peak") ? 1000.0 : 
+                            dxgiCalculatedMaxLuminance;
+                            
+        bool finalIsOled = (_hdrDisplayProfileOverride == "400 Nits OLED") ? true :
+                           (_hdrDisplayProfileOverride == "1000 Nits Peak") ? false :
+                           isOled;
+
+        if (_mpvHandle != IntPtr.Zero && _isEngineInitialized)
+        {
+            if (finalIsOled)
+            {
+                SetMpvPropertyString(_mpvHandle, "target-contrast", "inf");
+            }
+            else
+            {
+                SetMpvPropertyString(_mpvHandle, "target-contrast", "default");
+            }
+
+            SetMpvPropertyString(_mpvHandle, "target-peak", targetPeak.ToString("F0", System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        // Direct bind evaluated values to visual dashboard labels on the UI thread
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_dashboardDisplayIdentity != null)
+            {
+                _dashboardDisplayIdentity.Text = string.IsNullOrEmpty(_gpuName) || _gpuName == "Unknown GPU"
+                    ? (dxgiSuccess ? "Display 01: DXGI DETECTED PANEL" : "Display 01: Generic SDR Display")
+                    : $"Display 01: {_gpuName}";
+            }
+
+            if (_dashboardDisplayLuminance != null)
+            {
+                _dashboardDisplayLuminance.Text = $"Peak Target: {targetPeak:F0} Nits // {(finalIsOled ? "Infinite CR (OLED)" : "Standard CR")}";
+            }
+
+            if (_dashboardAdvisorText != null)
+            {
+                if (Math.Abs(targetPeak - 400.0) < 50.0)
+                {
+                    _dashboardAdvisorText.Text = "Set Windows OSD settings to 'VESA DisplayHDR True Black 400' for optimal tone-mapping response.";
+                }
+                else if (Math.Abs(targetPeak - 1000.0) < 150.0)
+                {
+                    _dashboardAdvisorText.Text = "Set Windows OSD settings to 'HDR Peak 1000' for optimal tone-mapping response.";
+                }
+                else
+                {
+                    _dashboardAdvisorText.Text = $"No specific hardware optimization required. Calibrated target peak: {targetPeak:F0} Nits.";
+                }
+            }
+        });
+
+        Log($"Monitor Profile applied -> Override: {_hdrDisplayProfileOverride}, TargetPeak: {targetPeak:F0}, OLED: {finalIsOled}");
+    }
+
+    private void EvaluateSystemHardware()
+    {
+        try
+        {
+            Guid factoryGuid = new Guid("7b7166ec-21c7-44ae-901a-31a3596a4a11");
+            int hr = CreateDXGIFactory1(ref factoryGuid, out IDXGIFactory factory);
+            if (hr == 0 && factory != null)
+            {
+                hr = factory.EnumAdapters(0, out IDXGIAdapter adapter);
+                if (hr == 0 && adapter != null)
+                {
+                    hr = adapter.GetDesc(out DXGI_ADAPTER_DESC desc);
+                    if (hr == 0)
+                    {
+                        _gpuName = desc.Description;
+                        _gpuVramBytes = (ulong)desc.DedicatedVideoMemory.ToUInt64();
+                        
+                        double vramGb = _gpuVramBytes / (1024.0 * 1024.0 * 1024.0);
+                        if (vramGb >= 8.0) _systemTier = 3;
+                        else if (vramGb >= 4.0) _systemTier = 2;
+                        else _systemTier = 1;
+
+                        Log($"System hardware evaluated -> GPU: {_gpuName}, VRAM: {vramGb:F2} GB (Tier {_systemTier})");
+                    }
+                    Marshal.Release(Marshal.GetIUnknownForObject(adapter));
+                }
+                Marshal.Release(Marshal.GetIUnknownForObject(factory));
+            }
+        }
+        catch (Exception ex)
+        {
+            Log($"System Rig profiling failed: {ex.Message}");
+            _systemTier = 1;
+        }
+
+        // Update display identity text on UI thread
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_dashboardDisplayIdentity != null)
+            {
+                _dashboardDisplayIdentity.Text = $"Display 01: {_gpuName}";
+            }
+        });
+    }
+#pragma warning restore CA1416
+
+    private void RunAutomatedRuleChain()
+    {
+        if (!_isAnalyzeModeActive || _mpvHandle == IntPtr.Zero || !_isEngineInitialized) return;
+
+        Log("Evaluating Automated Rules (Smart Analyze Mode)...");
+
+        // 1. Bitrate Fingerprinting
+        double fileSizeBytes = GetMpvPropertyDouble("file-size");
+        double durationSeconds = GetMpvPropertyDouble("duration");
+        if (double.IsNaN(durationSeconds) || durationSeconds <= 0)
+        {
+            durationSeconds = _playbackDuration;
+        }
+
+        double bitrateMbps = 0;
+        if (fileSizeBytes > 0 && durationSeconds > 0)
+        {
+            bitrateMbps = (fileSizeBytes * 8.0) / (durationSeconds * 1000000.0);
+        }
+
+        // Bitrate-based Debanding Rule
+        string debandStatusText = "OFF";
+        if (bitrateMbps > 0 && bitrateMbps < 5.0)
+        {
+            ApplyDebandConfig("Reference");
+            debandStatusText = "REFERENCE (LOW BITRATE)";
+        }
+        else
+        {
+            // Tier based default debanding
+            if (_systemTier == 3)
+            {
+                ApplyDebandConfig("Reference");
+                debandStatusText = "REFERENCE (HIGH SPEC)";
+            }
+            else if (_systemTier == 2)
+            {
+                ApplyDebandConfig("Low");
+                debandStatusText = "LOW (BALANCED)";
+            }
+            else
+            {
+                ApplyDebandConfig("Off");
+                debandStatusText = "OFF";
+            }
+        }
+
+        // Hardware Tier-based Upscaling Shaders Configuration
+        string scaleStatusText = "PERFORMANCE (MITCHELL)";
+        if (_systemTier == 3)
+        {
+            ApplyScalingConfig(true); // Cinematic EWA Lanczos
+            scaleStatusText = "CINEMATIC (EWA LANCZOS)";
+        }
+        else if (_systemTier == 2)
+        {
+            ApplyScalingConfig(false); // Mitchell / Spline balanced
+            scaleStatusText = "BALANCED (MITCHELL)";
+        }
+        else
+        {
+            ApplyScalingConfig(false); // Bilinear safe fallback
+            scaleStatusText = "PERFORMANCE (MITCHELL)";
+            if (_systemTier == 1)
+            {
+                SetMpvPropertyString(_mpvHandle, "scale", "bilinear");
+                SetMpvPropertyString(_mpvHandle, "cscale", "bilinear");
+                scaleStatusText = "LOW-SPEC (BILINEAR)";
+            }
+        }
+
+        // 2. Color Space Syncing
+        string gamma = GetMpvPropertyString("video-params/gamma") ?? "unknown";
+        string hdrStatusText = "INACTIVE";
+        if (gamma == "pq" || gamma == "hlg")
+        {
+            ApplyHdrConfig(true);
+            hdrStatusText = $"ACTIVE ({gamma.ToUpper()})";
+        }
+        else
+        {
+            ApplyHdrConfig(false);
+            hdrStatusText = "INACTIVE";
+        }
+
+        // Update the dashboard labels!
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_dashboardHdrStatus != null)
+            {
+                _dashboardHdrStatus.Text = hdrStatusText;
+            }
+            if (_dashboardDebandStatus != null)
+            {
+                _dashboardDebandStatus.Text = debandStatusText;
+            }
+            if (_dashboardChromaStatus != null)
+            {
+                _dashboardChromaStatus.Text = scaleStatusText;
+            }
+        });
+
+        Log($"Automated Rules evaluated -> Bitrate: {bitrateMbps:F2} Mbps, Deband: {debandStatusText}, Scaling: {scaleStatusText}, HDR: {hdrStatusText}");
+    }
+
+    private void StartSafetyValveLoop()
+    {
+        _safetyValveCts?.Cancel();
+        _safetyValveCts = new System.Threading.CancellationTokenSource();
+        var token = _safetyValveCts.Token;
+
+        _lastDropFrameCount = GetMpvPropertyLong("vo-drop-frame-count");
+
+        Task.Run(async () =>
+        {
+            Log("Dynamic Performance Safety Valve Loop enabled.");
+            while (!token.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(1500, token);
+                    
+                    if (!_isAnalyzeModeActive || _mpvHandle == IntPtr.Zero || !_isEngineInitialized)
+                        continue;
+
+                    long currentDropCount = GetMpvPropertyLong("vo-drop-frame-count");
+                    long droppedInWindow = currentDropCount - _lastDropFrameCount;
+                    _lastDropFrameCount = currentDropCount;
+
+                    if (droppedInWindow > 3)
+                    {
+                        Log($"Dynamic Safety Valve: Dropped {droppedInWindow} frames in 1.5s window.");
+                        if (_isCinematicScaling)
+                        {
+                            Dispatcher.UIThread.Post(() =>
+                            {
+                                ApplyScalingConfig(false); // Downscale to Mitchell
+                                if (_dashboardChromaStatus != null)
+                                {
+                                    _dashboardChromaStatus.Text = "BALANCED (MITCHELL)";
+                                }
+                                TriggerOsdHUD("⚡", "PERFORMANCE STABILIZER ACTIVE: SCALING STEPPED DOWN TO PROTECT RENDERING FRAME RATE");
+                            });
+                        }
+                        else if (_systemTier == 1)
+                        {
+                            // Enforce Bilinear fallback if not already
+                            SetMpvPropertyString(_mpvHandle, "scale", "bilinear");
+                            SetMpvPropertyString(_mpvHandle, "cscale", "bilinear");
+                            Dispatcher.UIThread.Post(() =>
+                            {
+                                if (_dashboardChromaStatus != null)
+                                {
+                                    _dashboardChromaStatus.Text = "LOW-SPEC (BILINEAR)";
+                                }
+                                TriggerOsdHUD("⚡", "PERFORMANCE STABILIZER ACTIVE: SCALING STEPPED DOWN TO PROTECT RENDERING FRAME RATE");
+                            });
+                        }
+                    }
+                }
+                catch (TaskCanceledException) { break; }
+                catch (Exception ex)
+                {
+                    Log($"Safety Valve error: {ex.Message}");
+                }
+            }
+            Log("Dynamic Performance Safety Valve Loop disabled.");
+        }, token);
+    }
+
+    private void StopSafetyValveLoop()
+    {
+        _safetyValveCts?.Cancel();
+        _safetyValveCts = null;
+    }
+
+    private void LogTelemetry(string message)
+    {
+        Log($"Telemetry Monitor: {message}");
+    }
 }
+
+// --- Phase 2 DXGI COM Interop Definitions ---
+[ComImport]
+[Guid("7b7166ec-21c7-44ae-901a-31a3596a4a11")]
+[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+public interface IDXGIFactory
+{
+    [PreserveSig]
+    int SetPrivateData(ref Guid Name, uint DataSize, IntPtr pData);
+    [PreserveSig]
+    int SetPrivateDataInterface(ref Guid Name, IntPtr pUnknown);
+    [PreserveSig]
+    int GetPrivateData(ref Guid Name, ref uint pDataSize, IntPtr pData);
+    [PreserveSig]
+    int GetParent(ref Guid riid, out IntPtr ppParent);
+    [PreserveSig]
+    int EnumAdapters(uint Adapter, out IDXGIAdapter ppAdapter);
+}
+
+[ComImport]
+[Guid("240b0cf0-1592-4ebc-9a45-637b784f1578")]
+[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+public interface IDXGIAdapter
+{
+    [PreserveSig]
+    int SetPrivateData(ref Guid Name, uint DataSize, IntPtr pData);
+    [PreserveSig]
+    int SetPrivateDataInterface(ref Guid Name, IntPtr pUnknown);
+    [PreserveSig]
+    int GetPrivateData(ref Guid Name, ref uint pDataSize, IntPtr pData);
+    [PreserveSig]
+    int GetParent(ref Guid riid, out IntPtr ppParent);
+    [PreserveSig]
+    int EnumOutputs(uint Output, out IntPtr ppOutput);
+    [PreserveSig]
+    int GetDesc(out DXGI_ADAPTER_DESC pDesc);
+}
+
+[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+public struct DXGI_ADAPTER_DESC
+{
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+    public string Description;
+    public uint VendorId;
+    public uint DeviceId;
+    public UIntPtr DedicatedVideoMemory;
+    public UIntPtr DedicatedSystemMemory;
+    public UIntPtr SharedSystemMemory;
+    public uint LuidLow;
+    public int LuidHigh;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct RECT
+{
+    public int Left;
+    public int Top;
+    public int Right;
+    public int Bottom;
+}
+
+[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+public struct DXGI_OUTPUT_DESC1
+{
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+    public string DeviceName;
+    public RECT DesktopCoordinates;
+    public bool AttachedToDesktop;
+    public int Rotation;
+    public IntPtr Monitor;
+    public uint BitsPerColor;
+    public int ColorSpace;
+    public float RedPrimaryX;
+    public float RedPrimaryY;
+    public float GreenPrimaryX;
+    public float GreenPrimaryY;
+    public float BluePrimaryX;
+    public float BluePrimaryY;
+    public float WhitePointX;
+    public float WhitePointY;
+    public float MinLuminance;
+    public float MaxLuminance;
+    public float MaxFullFrameLuminance;
+}
+
+[UnmanagedFunctionPointer(CallingConvention.StdCall)]
+public delegate int GetDesc1Delegate(IntPtr thisPtr, out DXGI_OUTPUT_DESC1 pDesc);
 
 // --- Phase 3 ViewModels ---
 public class MediaItemViewModel : System.ComponentModel.INotifyPropertyChanged
