@@ -356,7 +356,7 @@ public partial class MainWindow : Window
         // Set BlueJay window icon from embedded asset
         try
         {
-            using var iconStream = Avalonia.Platform.AssetLoader.Open(new Uri("avares://BlueJayPlayer/Assets/blujay_logo.jpg"));
+            using var iconStream = Avalonia.Platform.AssetLoader.Open(new Uri("avares://BlueJayPlayer/Assets/square_one_app_logo.ico"));
             this.Icon = new WindowIcon(iconStream);
         }
         catch { /* Icon load failed gracefully */ }

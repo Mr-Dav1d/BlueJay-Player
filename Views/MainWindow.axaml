@@ -44,9 +44,10 @@
 
                         <!-- Idle Logo Splash (visible when no media is playing) -->
                         <Panel Name="IdleLogoPanel" Background="#000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" IsHitTestVisible="False">
-                            <Image Source="avares://BlueJayPlayer/Assets/blujay_logo.jpg"
-                                   HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                                   Stretch="UniformToFill"/>
+                            <Image Source="avares://BlueJayPlayer/Assets/square_one_app_logo.png"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Width="450" Height="450"
+                                   Stretch="Uniform"/>
                         </Panel>
 
                         <!-- Premium Cinematic Dynamic Title Overlay Block -->
