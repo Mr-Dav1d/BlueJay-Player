@@ -1482,6 +1482,7 @@ public partial class MainWindow : Window
         SetMpvPropertyString(_mpvHandle, "pause", _isPaused ? "yes" : "no");
         UpdatePlayPauseIcon();
         TriggerOsdHUD(_isPaused ? "⏸" : "▶", _isPaused ? "Paused" : "Playing");
+        this.Focus();
     }
 
     private void UpdatePlayPauseIcon()
@@ -1777,10 +1778,28 @@ public partial class MainWindow : Window
         {
             SendCommand(_previewMpvHandle, "loadfile", filePath);
         }
+
+        this.Focus();
     }
 
     private void OnWindowKeyDownTunnel(object? sender, KeyEventArgs e)
     {
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Meta))
+        {
+            if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+            {
+                this.Activate();
+            }
+            e.Handled = false;
+            return;
+        }
+
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+        {
+            e.Handled = false;
+            return;
+        }
+
         if (!_isEngineInitialized || _mpvHandle == IntPtr.Zero) return;
 
         // Ctrl+, Settings toggle shortcut
@@ -2629,6 +2648,19 @@ public partial class MainWindow : Window
             DragDrop.AddDropHandler(_queuePanel, OnQueuePanelFileDropped);
         }
 
+        if (_queuePanel != null)
+        {
+            _queuePanel.AddHandler(InputElement.PointerPressedEvent, (object? sender, PointerPressedEventArgs e) => this.Focus(), RoutingStrategies.Tunnel);
+        }
+        if (_directoryPanel != null)
+        {
+            _directoryPanel.AddHandler(InputElement.PointerPressedEvent, (object? sender, PointerPressedEventArgs e) => this.Focus(), RoutingStrategies.Tunnel);
+        }
+        if (_enginePanel != null)
+        {
+            _enginePanel.AddHandler(InputElement.PointerPressedEvent, (object? sender, PointerPressedEventArgs e) => this.Focus(), RoutingStrategies.Tunnel);
+        }
+
         UpdateQueuePlaceholder();
         SwitchTab(_defaultWorkspaceTab);
     }
@@ -3064,6 +3096,7 @@ public partial class MainWindow : Window
                         if (_mpvHandle != IntPtr.Zero && _isEngineInitialized)
                         {
                             SendCommand(_mpvHandle, "stop");
+                            this.Focus();
                         }
                     }
                     else if (_currentQueueIndex > index)
@@ -3417,6 +3450,7 @@ public partial class MainWindow : Window
             if (_mpvHandle != IntPtr.Zero && _isEngineInitialized)
             {
                 SendCommand(_mpvHandle, "stop");
+                this.Focus();
             }
         }
         Log("Playback queue cleared successfully.");

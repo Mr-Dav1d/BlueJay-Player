@@ -122,6 +122,7 @@ public class MpvVideoSurface : NativeControlHost
 
     private void OnOverlayPointerPressed(object? sender, PointerEventArgs e)
     {
+        _parentWindow?.Activate();
         // Let overlay content handle presses natively — do not forward to parent
     }
 
@@ -132,6 +133,19 @@ public class MpvVideoSurface : NativeControlHost
 
     private void OnOverlayKeyDown(object? sender, KeyEventArgs e)
     {
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Meta))
+        {
+            _parentWindow?.RaiseEvent(e);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+        {
+            e.Handled = false;
+            return;
+        }
+
         // Forward the event to the parent window's handler
         _parentWindow?.RaiseEvent(e);
     }

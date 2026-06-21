@@ -631,7 +631,7 @@
                                             <!-- Tone-Mapping Curve Group -->
                                             <StackPanel Spacing="6">
                                                 <TextBlock Text="TONE-MAPPING CURVE" Foreground="#8A92AD" FontSize="10" FontWeight="SemiBold"/>
-                                                <Button Name="ToneMappingButton" HorizontalAlignment="Stretch" Height="32" Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="6" Padding="12,0" HorizontalContentAlignment="Stretch">
+                                                <Button Name="ToneMappingButton" HorizontalAlignment="Stretch" Height="32" Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="6" Padding="12,0" HorizontalContentAlignment="Stretch" Focusable="False">
                                                     <Grid ColumnDefinitions="*,Auto">
                                                         <TextBlock Name="ToneMappingSelectedText" Text="bt.2446a" Foreground="#C5CEE3" FontSize="11" VerticalAlignment="Center"/>
                                                         <PathIcon Grid.Column="1" Data="M7 10l5 5 5-5z" Width="10" Height="10" Foreground="#5C647C" VerticalAlignment="Center"/>
