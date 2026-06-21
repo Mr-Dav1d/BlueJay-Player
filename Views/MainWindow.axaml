@@ -545,9 +545,9 @@
                                                 <Border Name="EnvDesktopIndicator" Grid.Column="1" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="True"/>
                                                 <Border Name="EnvEnthusiastIndicator" Grid.Column="2" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="False"/>
                                                 
-                                                <Button Grid.Column="0" Name="EnvEcoButton" Classes="tab-btn" Content="ECO / BATTERY"/>
-                                                <Button Grid.Column="1" Name="EnvDesktopButton" Classes="tab-btn active" Content="DESKTOP STANDARD"/>
-                                                <Button Grid.Column="2" Name="EnvEnthusiastButton" Classes="tab-btn" Content="ENTHUSIAST ULTRA"/>
+                                                <Button Grid.Column="0" Name="EnvEcoButton" Classes="tab-btn" Content="ECO" FontSize="10"/>
+                                                <Button Grid.Column="1" Name="EnvDesktopButton" Classes="tab-btn active" Content="STANDARD" FontSize="10"/>
+                                                <Button Grid.Column="2" Name="EnvEnthusiastButton" Classes="tab-btn" Content="ULTRA" FontSize="10"/>
                                             </Grid>
                                         </Border>
                                     </StackPanel>
