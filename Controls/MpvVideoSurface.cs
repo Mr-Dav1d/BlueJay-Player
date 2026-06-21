@@ -145,6 +145,24 @@ public class MpvVideoSurface : NativeControlHost
         {
             SyncOverlayGeometry();
         }
+        else if (e.Property == IsVisibleProperty)
+        {
+            if (_overlayWindow != null)
+            {
+                if (IsVisible)
+                {
+                    if (_parentWindow != null)
+                        _overlayWindow.Show(_parentWindow);
+                    else
+                        _overlayWindow.Show();
+                    SyncOverlayGeometry();
+                }
+                else
+                {
+                    _overlayWindow.Hide();
+                }
+            }
+        }
     }
 
     private void TeardownOverlay()

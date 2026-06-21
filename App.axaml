@@ -143,6 +143,16 @@
         <Style Selector="Button.transport-btn:pressed /template/ Border#BtnRoot">
             <Setter Property="Background" Value="#1566AFFF"/>
         </Style>
+        
+        <!-- Ice-Blue Glow Active Class for HDR indicators -->
+        <Style Selector="Button.transport-btn.hdr-active">
+            <Setter Property="Foreground" Value="#66AFFF"/>
+        </Style>
+        <Style Selector="Button.transport-btn.hdr-active /template/ Border#BtnRoot">
+            <Setter Property="Background" Value="#1566AFFF"/>
+            <Setter Property="BorderBrush" Value="#3066AFFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
 
         <!-- Minimal Volume Slider Architecture -->
         <Style Selector="Slider.volume-mini:horizontal">
@@ -282,8 +292,8 @@
             <Setter Property="Focusable" Value="False"/>
             <Setter Property="Template">
                 <ControlTemplate>
-                    <Border Background="Transparent" CornerRadius="4">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Content="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"/>
+                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" Content="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"/>
                     </Border>
                 </ControlTemplate>
             </Setter>
@@ -434,6 +444,39 @@
                     </KeyFrame>
                 </Animation>
             </Style.Animations>
+        </Style>
+
+        <!-- Titlebar buttons custom premium styling -->
+        <Style Selector="Button.titlebar-btn">
+            <Setter Property="Foreground" Value="#5C647C"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="VerticalAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.1"/>
+                    <BrushTransition Property="Foreground" Duration="0:0:0.1"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.titlebar-btn:pointerover">
+            <Setter Property="Background" Value="#1F222F"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+        </Style>
+        <Style Selector="Button.titlebar-btn:pressed">
+            <Setter Property="Background" Value="#2B2E3F"/>
+        </Style>
+        <Style Selector="Button.titlebar-btn.close:pointerover">
+            <Setter Property="Background" Value="#E81123"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+        </Style>
+        <Style Selector="Button.titlebar-btn.close:pressed">
+            <Setter Property="Background" Value="#F1707A"/>
         </Style>
 
         <!-- Sleek MenuFlyoutPresenter styling to enable scrollbar when items list goes offscreen -->

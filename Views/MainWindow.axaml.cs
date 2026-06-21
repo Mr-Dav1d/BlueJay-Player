@@ -23,6 +23,8 @@ public partial class MainWindow : Window
     [DllImport("libmpv-2.dll", EntryPoint = "mpv_create", CallingConvention = CallingConvention.Cdecl)]
     private static extern IntPtr MpvCreate();
 
+
+
     [DllImport("libmpv-2.dll", EntryPoint = "mpv_initialize", CallingConvention = CallingConvention.Cdecl)]
     private static extern int MpvInitialize(IntPtr handle);
 
@@ -100,6 +102,9 @@ public partial class MainWindow : Window
     private System.Threading.CancellationTokenSource? _statsCts;
     private bool _isStatsSticky;
     private TextBlock[] _currentTimeTexts = Array.Empty<TextBlock>();
+    private TextBox? _singleCurrentTimeInput;
+    private TextBox? _deckCurrentTimeInput;
+    private bool _isEditingTime = false;
     private TextBlock[] _totalDurationTexts = Array.Empty<TextBlock>();
     private Slider[] _playbackSliders = Array.Empty<Slider>();
     private Button[] _playPauseButtons = Array.Empty<Button>();
@@ -108,11 +113,11 @@ public partial class MainWindow : Window
     private PathIcon[] _volumeIcons = Array.Empty<PathIcon>();
     private System.Threading.CancellationTokenSource? _transportCts;
     private bool _isPaused;
+    private bool _showRemainingTime;
     private bool _isMuted;
     private double _volumeBeforeMute = 100;
     private bool _isVolumeUpdatingFromMpv;
-    private Button? _singleModeSwitchButton;
-    private Button? _deckModeSwitchButton;
+    private bool _isTacticalDeckMode = false;
 
     // Phase 2 loop, audio, and subtitle selectors
     // Loop mode: 0 = Off (play next in queue), 1 = Loop Queue, 2 = Loop Current Track
@@ -181,6 +186,8 @@ public partial class MainWindow : Window
     private TextBox? _breadcrumbText;
     private Button? _upDirectoryButton;
     private ListBox? _directoryListBox;
+    private ComboBox? _directorySortComboBox;
+    private int _directorySortMode = 0;
     private Button? _prevPageButton;
     private TextBlock? _pageNumberText;
     private Button? _nextPageButton;
@@ -221,13 +228,11 @@ public partial class MainWindow : Window
     private MenuItem? _toneMapSplineItem;
     private MenuItem? _toneMapLinearItem;
 
-    // HUD HDR Buttons
-    private Button? _singleHdrButton;
-    private Button? _deckHdrButton;
-    private Border? _singleHdrBadge;
-    private Border? _deckHdrBadge;
-    private PathIcon? _singleHdrIcon;
-    private PathIcon? _deckHdrIcon;
+    // HUD Fullscreen/HDR Integration
+    private Button? _singleFullscreenButton;
+    private Button? _deckFullscreenButton;
+    private PathIcon? _singleFullscreenIcon;
+    private PathIcon? _deckFullscreenIcon;
     
     // State variables for engine options
     private bool _isHdrActive = false;
@@ -235,46 +240,118 @@ public partial class MainWindow : Window
     private bool _isCinematicScaling = false;
     private string _currentToneMapping = "bt.2446a";
 
-    // Phase 2 UI References
-    private Border? _manualModeIndicator;
-    private Border? _analyzeModeIndicator;
-    private Button? _manualModeButton;
-    private Button? _analyzeModeButton;
-    private Border? _smartAnalyzeDashboard;
-    private TextBlock? _dashboardDisplayIdentity;
-    private TextBlock? _dashboardDisplayLuminance;
-    private TextBlock? _dashboardHdrStatus;
-    private TextBlock? _dashboardDebandStatus;
-    private TextBlock? _dashboardChromaStatus;
-    private TextBlock? _dashboardAdvisorText;
-    private StackPanel? _manualControlsContainer;
+    // System Clock backing variables
+    private bool _showSystemClock = false;
+    private bool _use24HourClock = true;
+    private DispatcherTimer? _systemClockTimer;
 
-    private Border? _hdrProfileAutoIndicator;
+    // Phase 2 UI References
+    // Refactored Engine Panel UI References
+    private TextBlock? _renderingProfileSubText;
+    private TextBlock? _gradientSmoothingSubText;
+    private TextBlock? _imageSharpnessSubText;
+
     private Border? _hdrProfile400Indicator;
     private Border? _hdrProfile1000Indicator;
-    private Button? _hdrProfileAutoButton;
     private Button? _hdrProfile400Button;
     private Button? _hdrProfile1000Button;
+
+    // Hardware Environment Profile UI References
+    private Button? _envEcoButton;
+    private Button? _envDesktopButton;
+    private Button? _envEnthusiastButton;
+    private Border? _envEcoIndicator;
+    private Border? _envDesktopIndicator;
+    private Border? _envEnthusiastIndicator;
+    private TextBlock? _envProfileSubText;
+
+    // Mitigation Telemetry Badges
+    private Border? _autoDebandBadge;
+    private Border? _deinterlaceBadge;
+
+    // Advanced ComboBoxes
+    private ComboBox? _scaleComboBox;
+    private ComboBox? _cScaleComboBox;
+    private ComboBox? _interpolationComboBox;
+
+    // Synchronization and state tracking
+    private bool _isUpdatingProfileProgrammatically = false;
 
     // Backing snapshots for user manual configurations
     private bool _manualHdrActive = false;
     private string _manualDebandMode = "Off";
     private bool _manualCinematicScaling = false;
     private string _manualToneMapping = "bt.2446a";
+    private string _hdrDisplayProfileOverride = "400 Nit OLED";
 
-    // Dynamic Safety Valve and system variables
-    private bool _isAnalyzeModeActive = false;
-    private string _hdrDisplayProfileOverride = "Auto-EDID";
-    private int _systemTier = 2; // Default to Tier 2
-    private string _gpuName = "Unknown GPU";
-    private ulong _gpuVramBytes = 0;
-    private System.Threading.CancellationTokenSource? _safetyValveCts;
-    private long _lastDropFrameCount = 0;
+    // Settings Page Backing Fields
+    private string _defaultBootDirectoryPath = "";
+    private bool _rememberLastDirectoryPath = true;
+    private string _lastDirectoryPath = "";
+    private bool _allowMultipleInstances = false;
+    private bool _disableHdrPeak = false;
+    private bool _forceSoftwareDecoding = false;
+    private string _defaultAudioLanguage = "eng";
+    private bool _passthroughAc3 = false;
+    private bool _passthroughDts = false;
+    private bool _passthroughDtsHd = false;
+    private bool _passthroughTrueHd = false;
+    private bool _wasapiExclusive = false;
+    private string _subtitleFontFamily = "";
+    private double _subtitleBorderSize = 3.0;
+    private double _subtitleShadowOffset = 1.0;
+    private string _defaultWorkspaceTab = "Queue";
+    private bool _disableOsdNotifications = false;
+    private bool _disableSeekingPreviews = false;
+
+    // Settings Overlay Controls
+    private Grid? _masterSettingsOverlay;
+    private Button? _settingsCloseButton;
+    private ScrollViewer? _settingsScrollViewer;
+    private Button? _navGeneralButton;
+    private Button? _navEngineButton;
+    private Button? _navAudioButton;
+    private Button? _navSubtitlesButton;
+    private Button? _navUiButton;
+    private TextBox? _defaultBootDirTextBox;
+    private Button? _browseBootDirButton;
+    private ToggleSwitch? _rememberLastDirToggle;
+    private ToggleSwitch? _allowMultipleInstancesToggle;
+    private ToggleSwitch? _disableHdrPeakToggle;
+    private ToggleSwitch? _forceSoftwareDecodingToggle;
+    private TextBox? _defaultAudioLangTextBox;
+    private CheckBox? _passthroughAc3CheckBox;
+    private CheckBox? _passthroughDtsCheckBox;
+    private CheckBox? _passthroughDtsHdCheckBox;
+    private CheckBox? _passthroughTrueHdCheckBox;
+    private ToggleSwitch? _wasapiExclusiveToggle;
+    private ComboBox? _subtitleFontComboBox;
+    private Slider? _subBorderSizeSlider;
+    private TextBlock? _subBorderSizeValueText;
+    private Slider? _subShadowOffsetSlider;
+    private TextBlock? _subShadowOffsetValueText;
+    private ComboBox? _defaultWorkspaceTabComboBox;
+    private ToggleSwitch? _disableOsdNotificationsToggle;
+    private ToggleSwitch? _disableSeekingPreviewsToggle;
+    private ToggleSwitch? _tacticalDeckToggle;
+    private ToggleSwitch? _showSystemClockToggle;
+    private ComboBox? _clockFormatComboBox;
+    private TextBlock? _singleSystemClockText;
+    private TextBlock? _deckSystemClockText;
+    private TextBlock? _singleSystemClockSeparator;
+    private TextBlock? _deckSystemClockSeparator;
 
     public MainWindow()
     {
         // InitializeComponent runs first to build the visual context tree from XAML
         InitializeComponent();
+
+        // Load settings from settings.json
+        LoadSettings();
+
+        _systemClockTimer = new DispatcherTimer();
+        _systemClockTimer.Interval = TimeSpan.FromSeconds(2);
+        _systemClockTimer.Tick += OnSystemClockTimerTick;
 
         // Set BlueJay window icon from embedded asset
         try
@@ -297,6 +374,7 @@ public partial class MainWindow : Window
         _breadcrumbText = this.FindControl<TextBox>("BreadcrumbText");
         _upDirectoryButton = this.FindControl<Button>("UpDirectoryButton");
         _directoryListBox = this.FindControl<ListBox>("DirectoryListBox");
+        _directorySortComboBox = this.FindControl<ComboBox>("DirectorySortComboBox");
         _prevPageButton = this.FindControl<Button>("PrevPageButton");
         _pageNumberText = this.FindControl<TextBlock>("PageNumberText");
         _nextPageButton = this.FindControl<Button>("NextPageButton");
@@ -306,6 +384,7 @@ public partial class MainWindow : Window
         _enginePanel = this.FindControl<Panel>("EnginePanel");
 
         SetupSidePanel();
+        SetupSettingsPanel();
         
         // Cache Root Layout References safely now that the components are inflated
         _mainRootGrid = this.FindControl<Grid>("MainRootGrid");
@@ -423,9 +502,13 @@ public partial class MainWindow : Window
         _transportBar      = FindInTree<Border>(hudPanel, "TransportBar");
         if (_transportBar != null)
         {
-            // Clear any accidental stale classes and force clean startup state tracking
             _transportBar.Classes.Remove("tactical-deck");
-            if (!_transportBar.Classes.Contains("single-line"))
+            _transportBar.Classes.Remove("single-line");
+            if (_isTacticalDeckMode)
+            {
+                _transportBar.Classes.Add("tactical-deck");
+            }
+            else
             {
                 _transportBar.Classes.Add("single-line");
             }
@@ -434,6 +517,8 @@ public partial class MainWindow : Window
         var singleCurrentTimeText   = FindInTree<TextBlock>(hudPanel, "SingleCurrentTimeText");
         var deckCurrentTimeText     = FindInTree<TextBlock>(hudPanel, "DeckCurrentTimeText");
         _currentTimeTexts = new TextBlock[] { singleCurrentTimeText!, deckCurrentTimeText! }.Where(x => x != null).ToArray();
+        _singleCurrentTimeInput = FindInTree<TextBox>(hudPanel, "SingleCurrentTimeInput");
+        _deckCurrentTimeInput   = FindInTree<TextBox>(hudPanel, "DeckCurrentTimeInput");
 
         var singleTotalDurationText = FindInTree<TextBlock>(hudPanel, "SingleTotalDurationText");
         var deckTotalDurationText   = FindInTree<TextBlock>(hudPanel, "DeckTotalDurationText");
@@ -493,15 +578,25 @@ public partial class MainWindow : Window
         var deckSidePanelBtn = FindInTree<Button>(hudPanel, "DeckSidePanelButton");
         _sidePanelButtons = new Button[] { singleSidePanelBtn!, deckSidePanelBtn! }.Where(x => x != null).ToArray();
 
-        _singleHdrButton = FindInTree<Button>(hudPanel, "SingleHdrButton");
-        _deckHdrButton = FindInTree<Button>(hudPanel, "DeckHdrButton");
-        _singleHdrBadge = FindInTree<Border>(hudPanel, "SingleHdrBadge");
-        _deckHdrBadge = FindInTree<Border>(hudPanel, "DeckHdrBadge");
-        _singleHdrIcon = FindInTree<PathIcon>(hudPanel, "SingleHdrIcon");
-        _deckHdrIcon = FindInTree<PathIcon>(hudPanel, "DeckHdrIcon");
+        _singleFullscreenButton = FindInTree<Button>(hudPanel, "SingleFullscreenButton");
+        _deckFullscreenButton = FindInTree<Button>(hudPanel, "DeckFullscreenButton");
+        _singleFullscreenIcon = FindInTree<PathIcon>(hudPanel, "SingleFullscreenIcon");
+        _deckFullscreenIcon = FindInTree<PathIcon>(hudPanel, "DeckFullscreenIcon");
 
-        if (_singleHdrButton != null) _singleHdrButton.Click += (s, e) => ApplyHdrConfig(!_isHdrActive);
-        if (_deckHdrButton != null) _deckHdrButton.Click += (s, e) => ApplyHdrConfig(!_isHdrActive);
+        _singleSystemClockText = FindInTree<TextBlock>(hudPanel, "SingleSystemClockText");
+        _deckSystemClockText = FindInTree<TextBlock>(hudPanel, "DeckSystemClockText");
+        _singleSystemClockSeparator = FindInTree<TextBlock>(hudPanel, "SingleSystemClockSeparator");
+        _deckSystemClockSeparator = FindInTree<TextBlock>(hudPanel, "DeckSystemClockSeparator");
+
+        if (_showSystemClock)
+        {
+            UpdateSystemClockText();
+            _systemClockTimer?.Start();
+        }
+        else
+        {
+            SetSystemClockVisibility(false);
+        }
 
         UpdateHdrUI();
         UpdateDebandUI();
@@ -587,6 +682,17 @@ public partial class MainWindow : Window
             btn.Click += (_, _) => TogglePlayPause();
         }
 
+        // Toggle remaining time display when clicking the total duration text
+        foreach (var durText in _totalDurationTexts)
+        {
+            durText.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
+            durText.PointerPressed += (_, _) =>
+            {
+                _showRemainingTime = !_showRemainingTime;
+                UpdateTransportUI(_playbackPosition, _playbackDuration);
+            };
+        }
+
         var hudRoot = _videoSurface?.Content as Avalonia.Controls.Control;
 
         var singleMuteBtn = hudRoot != null ? FindInTree<Button>(hudRoot, "SingleMuteButton") : null;
@@ -597,12 +703,10 @@ public partial class MainWindow : Window
             muteBtn.Click += (_, _) => ToggleMute();
         }
 
-        var singleFullscreenBtn = hudRoot != null ? FindInTree<Button>(hudRoot, "SingleFullscreenButton") : null;
-        var deckFullscreenBtn = hudRoot != null ? FindInTree<Button>(hudRoot, "DeckFullscreenButton") : null;
-        var fullscreenBtns = new Button[] { singleFullscreenBtn!, deckFullscreenBtn! }.Where(x => x != null);
+        var fullscreenBtns = new Button?[] { _singleFullscreenButton, _deckFullscreenButton }.Where(x => x != null);
         foreach (var fsBtn in fullscreenBtns)
         {
-            fsBtn.Click += (_, _) => ToggleFullscreen();
+            fsBtn!.Click += (_, _) => ToggleFullscreen();
         }
 
         var deckSkipBackBtn = hudRoot != null ? FindInTree<Button>(hudRoot, "DeckSkipBackButton") : null;
@@ -625,12 +729,7 @@ public partial class MainWindow : Window
             };
         }
 
-        _singleModeSwitchButton = hudRoot != null ? FindInTree<Button>(hudRoot, "SingleModeSwitchButton") : null;
-        _deckModeSwitchButton = hudRoot != null ? FindInTree<Button>(hudRoot, "DeckModeSwitchButton") : null;
-        if (_singleModeSwitchButton != null)
-            _singleModeSwitchButton.Click += (_, _) => ToggleLayoutMode();
-        if (_deckModeSwitchButton != null)
-            _deckModeSwitchButton.Click += (_, _) => ToggleLayoutMode();
+
 
         foreach (var slider in _volumeSliders)
         {
@@ -736,7 +835,7 @@ public partial class MainWindow : Window
             if (_mpvHandle == IntPtr.Zero) return;
 
             SetMpvOptionString(_mpvHandle, "wid", hwnd.ToInt64().ToString());
-            SetMpvOptionString(_mpvHandle, "hwdec", "auto");
+            SetMpvOptionString(_mpvHandle, "hwdec", _forceSoftwareDecoding ? "no" : "auto");
 
             int initResult = MpvInitialize(_mpvHandle);
             Log($"Engine initialization code returned: {initResult}");
@@ -767,11 +866,13 @@ public partial class MainWindow : Window
                 _eventLoopCts = new CancellationTokenSource();
                 Task.Run(() => RunEventLoop(_eventLoopCts.Token));
 
-                // Apply default startup rendering profiles to the freshly initialized engine
                 ApplyHdrConfig(_isHdrActive);
                 ApplyDebandConfig(_currentDebandMode);
                 ApplyScalingConfig(_isCinematicScaling);
                 ApplyToneMappingConfig(_currentToneMapping);
+                ApplyAudioSettings();
+                ApplyTypographySettings();
+                ApplyDecodingSettings();
 
                 if (!string.IsNullOrEmpty(_pendingFileToLoad))
                 {
@@ -815,13 +916,57 @@ public partial class MainWindow : Window
                 }
                 else if (mpvEvent.EventId == 8) // MPV_EVENT_FILE_LOADED
                 {
-                    Log("RunEventLoop: MPV_EVENT_FILE_LOADED received. Auto-running Smart Analyze if active.");
-                    if (_isAnalyzeModeActive)
+                    Log("RunEventLoop: MPV_EVENT_FILE_LOADED received.");
+
+                    // Reset badges on UI thread
+                    Dispatcher.UIThread.Post(() =>
                     {
-                        EvaluateActiveDisplayHardware();
-                        EvaluateSystemHardware();
-                        RunAutomatedRuleChain();
-                        TriggerOsdHUD("🔎", "SMART ANALYZE ACTIVE: OPTIMIZED CONFIG");
+                        if (_autoDebandBadge != null) _autoDebandBadge.IsVisible = false;
+                        if (_deinterlaceBadge != null) _deinterlaceBadge.IsVisible = false;
+                    });
+
+                    // Clear video filter first
+                    SetMpvPropertyString(_mpvHandle, "vf", "");
+
+                    // Re-apply baseline manual debanding configuration
+                    ApplyDebandConfig(_manualDebandMode);
+
+                    // Extract active track properties
+                    double videoBitrate = GetMpvPropertyDouble("video-bitrate");
+                    if (double.IsNaN(videoBitrate) || videoBitrate <= 0)
+                    {
+                        videoBitrate = GetMpvPropertyDouble("track-list/0/demux-bitrate");
+                    }
+
+                    // Check if bitrate < 2500 kbps (2,500,000 bps)
+                    if (videoBitrate > 0 && videoBitrate < 2500000)
+                    {
+                        Log($"[Auto-Mitigation] Low bitrate detected ({videoBitrate / 1000.0:F1} kbps). Applying strong auto-deband.");
+                        Dispatcher.UIThread.Post(() =>
+                        {
+                            if (_autoDebandBadge != null) _autoDebandBadge.IsVisible = true;
+                        });
+
+                        // Apply strong multi-iteration deband
+                        SetMpvPropertyString(_mpvHandle, "deband", "yes");
+                        SetMpvPropertyString(_mpvHandle, "deband-iterations", "4");
+                        SetMpvPropertyString(_mpvHandle, "deband-threshold", "64");
+                        SetMpvPropertyString(_mpvHandle, "deband-range", "20");
+                        SetMpvPropertyString(_mpvHandle, "deband-grain", "48");
+                    }
+
+                    // Check if media is interlaced
+                    string? interlacedStr = GetMpvPropertyString("video-params/interlaced");
+                    if (interlacedStr == "yes")
+                    {
+                        Log("[Auto-Mitigation] Interlaced media detected. Injecting bwdif filter.");
+                        Dispatcher.UIThread.Post(() =>
+                        {
+                            if (_deinterlaceBadge != null) _deinterlaceBadge.IsVisible = true;
+                        });
+
+                        // Inject deinterlacing filter
+                        SetMpvPropertyString(_mpvHandle, "vf", "bwdif");
                     }
                 }
                 else if (mpvEvent.EventId == 22) // MPV_EVENT_PROPERTY_CHANGE
@@ -893,9 +1038,6 @@ public partial class MainWindow : Window
                         PopulateAudioTracks();
                         PopulateSubtitleTracks();
                         UpdatePreviewContainerAspect();
-
-                        // Run Automated Rule Chain if Smart Analyze mode is active
-                        RunAutomatedRuleChain();
                     }
                     break;
 
@@ -1281,6 +1423,8 @@ public partial class MainWindow : Window
 
         Dispatcher.UIThread.Post(() =>
         {
+            if (_isEditingTime) return;
+
             if (_playbackSliders.Length == 0 && _currentTimeTexts.Length == 0 && _totalDurationTexts.Length == 0)
             {
                 Log("UpdateTransportUI: one or more controls are null, skipping");
@@ -1304,9 +1448,19 @@ public partial class MainWindow : Window
             foreach (var txt in _currentTimeTexts)
                 txt.Text = currentStr;
 
-            string totalStr = TimeSpan.FromSeconds(total).ToString(@"hh\:mm\:ss");
-            foreach (var txt in _totalDurationTexts)
-                txt.Text = totalStr;
+            if (_showRemainingTime)
+            {
+                double remaining = Math.Max(0, total - current);
+                string remainStr = "-" + TimeSpan.FromSeconds(remaining).ToString(@"hh\:mm\:ss");
+                foreach (var txt in _totalDurationTexts)
+                    txt.Text = remainStr;
+            }
+            else
+            {
+                string totalStr = TimeSpan.FromSeconds(total).ToString(@"hh\:mm\:ss");
+                foreach (var txt in _totalDurationTexts)
+                    txt.Text = totalStr;
+            }
         });
     }
 
@@ -1393,19 +1547,19 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ToggleLayoutMode()
+    private void ApplyLayoutMode()
     {
         if (_transportBar == null) return;
         
-        if (_transportBar.Classes.Contains("single-line"))
+        _transportBar.Classes.Remove("tactical-deck");
+        _transportBar.Classes.Remove("single-line");
+        if (_isTacticalDeckMode)
         {
-            _transportBar.Classes.Remove("single-line");
             _transportBar.Classes.Add("tactical-deck");
             Log("Layout switched to Tactical Deck mode.");
         }
         else
         {
-            _transportBar.Classes.Remove("tactical-deck");
             _transportBar.Classes.Add("single-line");
             Log("Layout switched to Single Line mode.");
         }
@@ -1414,6 +1568,36 @@ public partial class MainWindow : Window
         _transportBar.InvalidateMeasure();
         _transportBar.InvalidateVisual();
         _videoSurface?.SyncOverlayGeometry();
+    }
+
+    private void OnSystemClockTimerTick(object? sender, EventArgs e)
+    {
+        UpdateSystemClockText();
+    }
+
+    private void UpdateSystemClockText()
+    {
+        if (!_showSystemClock)
+        {
+            SetSystemClockVisibility(false);
+            _systemClockTimer?.Stop();
+            return;
+        }
+
+        SetSystemClockVisibility(true);
+        string format = _use24HourClock ? "HH:mm" : "h:mm tt";
+        string clockStr = DateTime.Now.ToString(format);
+
+        if (_singleSystemClockText != null) _singleSystemClockText.Text = clockStr;
+        if (_deckSystemClockText != null) _deckSystemClockText.Text = clockStr;
+    }
+
+    private void SetSystemClockVisibility(bool visible)
+    {
+        if (_singleSystemClockText != null) _singleSystemClockText.IsVisible = visible;
+        if (_deckSystemClockText != null) _deckSystemClockText.IsVisible = visible;
+        if (_singleSystemClockSeparator != null) _singleSystemClockSeparator.IsVisible = visible;
+        if (_deckSystemClockSeparator != null) _deckSystemClockSeparator.IsVisible = visible;
     }
 
     private void LogEngineEvent(string message)
@@ -1438,6 +1622,18 @@ public partial class MainWindow : Window
             this.Cursor = null;
 
             _transportCts?.Cancel();
+
+            if (_isEditingTime)
+            {
+                _transportBar.Opacity = 1.0;
+                if (_videoTitleOverlay != null)
+                {
+                    _videoTitleOverlay.Opacity = 1.0;
+                }
+                _transportCts = null;
+                return;
+            }
+
             _transportCts = new System.Threading.CancellationTokenSource();
             var token = _transportCts.Token;
 
@@ -1479,6 +1675,7 @@ public partial class MainWindow : Window
 
     private void TriggerOsdHUD(string glyph, string description)
     {
+        if (_disableOsdNotifications) return;
         // Ensure we marshal back to Avalonia's primary UI thread safely
         Dispatcher.UIThread.Post(() =>
         {
@@ -1585,6 +1782,20 @@ public partial class MainWindow : Window
     private void OnWindowKeyDownTunnel(object? sender, KeyEventArgs e)
     {
         if (!_isEngineInitialized || _mpvHandle == IntPtr.Zero) return;
+
+        // Ctrl+, Settings toggle shortcut
+        if (e.Key == Key.OemComma && e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        {
+            e.Handled = true;
+            if (_masterSettingsOverlay != null)
+            {
+                if (_masterSettingsOverlay.IsVisible)
+                    CloseSettings();
+                else
+                    OpenSettings();
+            }
+            return;
+        }
 
         // 1. Fullscreen Engine & UI Toggle Layout Alignment
         if (e.Key == Key.F || (e.Key == Key.Escape && this.WindowState == WindowState.FullScreen))
@@ -1751,6 +1962,9 @@ public partial class MainWindow : Window
     protected override void OnClosing(WindowClosingEventArgs e)
     {
         Log("MainWindow closing detected. Initiating native engine teardown sequence...");
+
+        // Save settings on exit
+        SaveSettings();
         
         // 1. Signal the background C# thread loop to stop parsing events immediately
         _eventLoopCts?.Cancel();
@@ -2011,6 +2225,7 @@ public partial class MainWindow : Window
 
     private void OnSliderPointerEntered(object? sender, PointerEventArgs e)
     {
+        if (_disableSeekingPreviews) return;
         var card = _seekPreviewCard;
         if (card != null) card.Opacity = 1.0;
     }
@@ -2032,6 +2247,7 @@ public partial class MainWindow : Window
 
     private void OnSliderPointerMoved(object? sender, PointerEventArgs e)
     {
+        if (_disableSeekingPreviews) return;
         if (sender is not Slider slider || _playbackDuration <= 0) return;
 
         var point = e.GetCurrentPoint(slider);
@@ -2258,33 +2474,34 @@ public partial class MainWindow : Window
         if (_prevPageButton != null) _prevPageButton.Click += (s, e) => NavigatePage(-1);
         if (_nextPageButton != null) _nextPageButton.Click += (s, e) => NavigatePage(1);
 
-        // Resolve Video Engine Matrix controls
-        _manualModeIndicator = this.FindControl<Border>("ManualModeIndicator");
-        _analyzeModeIndicator = this.FindControl<Border>("AnalyzeModeIndicator");
-        _manualModeButton = this.FindControl<Button>("ManualModeButton");
-        _analyzeModeButton = this.FindControl<Button>("AnalyzeModeButton");
-        _smartAnalyzeDashboard = this.FindControl<Border>("SmartAnalyzeDashboard");
-        _dashboardDisplayIdentity = this.FindControl<TextBlock>("DashboardDisplayIdentity");
-        _dashboardDisplayLuminance = this.FindControl<TextBlock>("DashboardDisplayLuminance");
-        _dashboardHdrStatus = this.FindControl<TextBlock>("DashboardHdrStatus");
-        _dashboardDebandStatus = this.FindControl<TextBlock>("DashboardDebandStatus");
-        _dashboardChromaStatus = this.FindControl<TextBlock>("DashboardChromaStatus");
-        _dashboardAdvisorText = this.FindControl<TextBlock>("DashboardAdvisorText");
-        _manualControlsContainer = this.FindControl<StackPanel>("ManualControlsContainer");
+        if (_directorySortComboBox != null)
+        {
+            _directorySortComboBox.SelectedIndex = _directorySortMode;
+            _directorySortComboBox.SelectionChanged += (s, e) =>
+            {
+                _directorySortMode = _directorySortComboBox.SelectedIndex;
+                SaveSettings();
+                if (!string.IsNullOrEmpty(_currentDirectoryPath))
+                {
+                    LoadDirectory(_currentDirectoryPath);
+                }
+            };
+        }
 
-        _hdrProfileAutoIndicator = this.FindControl<Border>("HdrProfileAutoIndicator");
+        // Resolve Video Engine Matrix controls
+        _renderingProfileSubText = this.FindControl<TextBlock>("RenderingProfileSubText");
+        _gradientSmoothingSubText = this.FindControl<TextBlock>("GradientSmoothingSubText");
+        _imageSharpnessSubText = this.FindControl<TextBlock>("ImageSharpnessSubText");
+
         _hdrProfile400Indicator = this.FindControl<Border>("HdrProfile400Indicator");
         _hdrProfile1000Indicator = this.FindControl<Border>("HdrProfile1000Indicator");
-        _hdrProfileAutoButton = this.FindControl<Button>("HdrProfileAutoButton");
         _hdrProfile400Button = this.FindControl<Button>("HdrProfile400Button");
         _hdrProfile1000Button = this.FindControl<Button>("HdrProfile1000Button");
 
-        if (_manualModeButton != null) _manualModeButton.Click += (s, e) => { DisableAnalyzeMode(); UpdateAnalyzeModeSwitchUI(); };
-        if (_analyzeModeButton != null) _analyzeModeButton.Click += (s, e) => { EnableAnalyzeMode(); UpdateAnalyzeModeSwitchUI(); };
+        if (_hdrProfile400Button != null) _hdrProfile400Button.Click += (s, e) => SetHdrProfileOverride("400 Nit OLED");
+        if (_hdrProfile1000Button != null) _hdrProfile1000Button.Click += (s, e) => SetHdrProfileOverride("1000 Nit Peak");
 
-        if (_hdrProfileAutoButton != null) _hdrProfileAutoButton.Click += (s, e) => SetHdrProfileOverride("Auto-EDID");
-        if (_hdrProfile400Button != null) _hdrProfile400Button.Click += (s, e) => SetHdrProfileOverride("400 Nits OLED");
-        if (_hdrProfile1000Button != null) _hdrProfile1000Button.Click += (s, e) => SetHdrProfileOverride("1000 Nits Peak");
+        SetHdrProfileOverride(_hdrDisplayProfileOverride);
 
         _hdrSdrIndicator = this.FindControl<Border>("HdrSdrIndicator");
         _hdrActiveIndicator = this.FindControl<Border>("HdrActiveIndicator");
@@ -2330,6 +2547,33 @@ public partial class MainWindow : Window
         if (_toneMapSplineItem != null) _toneMapSplineItem.Click += (s, e) => ApplyToneMappingConfig("spline");
         if (_toneMapLinearItem != null) _toneMapLinearItem.Click += (s, e) => ApplyToneMappingConfig("linear");
 
+        // Resolve and bind Hardware Environment Profile & Advanced tuning controls
+        _envEcoButton = this.FindControl<Button>("EnvEcoButton");
+        _envDesktopButton = this.FindControl<Button>("EnvDesktopButton");
+        _envEnthusiastButton = this.FindControl<Button>("EnvEnthusiastButton");
+        _envEcoIndicator = this.FindControl<Border>("EnvEcoIndicator");
+        _envDesktopIndicator = this.FindControl<Border>("EnvDesktopIndicator");
+        _envEnthusiastIndicator = this.FindControl<Border>("EnvEnthusiastIndicator");
+        _envProfileSubText = this.FindControl<TextBlock>("EnvProfileSubText");
+
+        _autoDebandBadge = this.FindControl<Border>("AutoDebandBadge");
+        _deinterlaceBadge = this.FindControl<Border>("DeinterlaceBadge");
+
+        _scaleComboBox = this.FindControl<ComboBox>("ScaleComboBox");
+        _cScaleComboBox = this.FindControl<ComboBox>("CScaleComboBox");
+        _interpolationComboBox = this.FindControl<ComboBox>("InterpolationComboBox");
+
+        if (_envEcoButton != null) _envEcoButton.Click += (s, e) => ApplyEnvironmentProfile("Eco");
+        if (_envDesktopButton != null) _envDesktopButton.Click += (s, e) => ApplyEnvironmentProfile("Desktop");
+        if (_envEnthusiastButton != null) _envEnthusiastButton.Click += (s, e) => ApplyEnvironmentProfile("Enthusiast");
+
+        if (_scaleComboBox != null) _scaleComboBox.SelectionChanged += (s, e) => ApplyAdvancedTuningFromUI();
+        if (_cScaleComboBox != null) _cScaleComboBox.SelectionChanged += (s, e) => ApplyAdvancedTuningFromUI();
+        if (_interpolationComboBox != null) _interpolationComboBox.SelectionChanged += (s, e) => ApplyAdvancedTuningFromUI();
+
+        // Initial default environment setup
+        ApplyEnvironmentProfile("Desktop");
+
         _shuffleButton = this.FindControl<Button>("ShuffleButton");
         if (_shuffleButton != null)
         {
@@ -2342,9 +2586,19 @@ public partial class MainWindow : Window
             clearQueueBtn.Click += (s, e) => ClearQueue();
         }
 
-        // Allow typing a directory path and pressing Enter
+        // Allow typing a directory path and pressing Enter, with formatting focus locks
         if (_breadcrumbText != null)
         {
+            _breadcrumbText.GotFocus += (s, e) =>
+            {
+                _breadcrumbText.Text = _currentDirectoryPath;
+            };
+
+            _breadcrumbText.LostFocus += (s, e) =>
+            {
+                _breadcrumbText.Text = FormatBreadcrumbPath(_currentDirectoryPath);
+            };
+
             _breadcrumbText.KeyDown += (s, e) =>
             {
                 if (e.Key == Key.Return)
@@ -2353,11 +2607,12 @@ public partial class MainWindow : Window
                     if (!string.IsNullOrEmpty(typed) && Directory.Exists(typed))
                     {
                         LoadDirectory(typed);
+                        this.Focus();
                     }
                     else
                     {
-                        // Reset to the current directory if invalid path typed
-                        _breadcrumbText.Text = _currentDirectoryPath;
+                        _breadcrumbText.Text = FormatBreadcrumbPath(_currentDirectoryPath);
+                        this.Focus();
                     }
                     e.Handled = true;
                 }
@@ -2375,7 +2630,7 @@ public partial class MainWindow : Window
         }
 
         UpdateQueuePlaceholder();
-        SwitchTab("Queue");
+        SwitchTab(_defaultWorkspaceTab);
     }
 
     private async void ToggleSidePanel()
@@ -2414,17 +2669,29 @@ public partial class MainWindow : Window
             // Load default folder if not set
             if (string.IsNullOrEmpty(_currentDirectoryPath))
             {
-                // Default to the user's Downloads folder
-                string defaultPath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
-                if (string.IsNullOrEmpty(defaultPath) || !Directory.Exists(defaultPath))
+                string targetDir = "";
+                if (_rememberLastDirectoryPath && !string.IsNullOrEmpty(_lastDirectoryPath) && Directory.Exists(_lastDirectoryPath))
                 {
-                    defaultPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                    targetDir = _lastDirectoryPath;
                 }
-                if (string.IsNullOrEmpty(defaultPath) || !Directory.Exists(defaultPath))
+                else if (!string.IsNullOrEmpty(_defaultBootDirectoryPath) && Directory.Exists(_defaultBootDirectoryPath))
                 {
-                    defaultPath = AppContext.BaseDirectory;
+                    targetDir = _defaultBootDirectoryPath;
                 }
-                LoadDirectory(defaultPath);
+
+                if (string.IsNullOrEmpty(targetDir))
+                {
+                    targetDir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+                    if (string.IsNullOrEmpty(targetDir) || !Directory.Exists(targetDir))
+                    {
+                        targetDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                    }
+                    if (string.IsNullOrEmpty(targetDir) || !Directory.Exists(targetDir))
+                    {
+                        targetDir = AppContext.BaseDirectory;
+                    }
+                }
+                LoadDirectory(targetDir);
             }
         }
     }
@@ -2440,15 +2707,52 @@ public partial class MainWindow : Window
             var dirInfo = new DirectoryInfo(path);
             var entries = dirInfo.GetFileSystemInfos().Where(e => e.Exists).ToList();
 
-            var folders = entries.Where(e => (e.Attributes & FileAttributes.Directory) != 0)
-                                 .OrderBy(e => e.Name)
-                                 .ToList();
+            var folders = entries.Where(e => (e.Attributes & FileAttributes.Directory) != 0).ToList();
+            var files = entries.Where(e => (e.Attributes & FileAttributes.Directory) == 0 && IsVideoFile(e.Extension)).ToList();
 
-            var files = entries.Where(e => (e.Attributes & FileAttributes.Directory) == 0 && IsVideoFile(e.Extension))
-                               .OrderBy(e => e.Name)
-                               .ToList();
+            // Sort folders
+            System.Collections.Generic.IEnumerable<System.IO.FileSystemInfo> sortedFolders;
+            switch (_directorySortMode)
+            {
+                case 1: // Name (Descending)
+                    sortedFolders = folders.OrderByDescending(e => e.Name);
+                    break;
+                case 2: // Date Modified (Newest First)
+                    sortedFolders = folders.OrderByDescending(e => e.LastWriteTime);
+                    break;
+                case 3: // Date Modified (Oldest First)
+                    sortedFolders = folders.OrderBy(e => e.LastWriteTime);
+                    break;
+                default: // Name (Ascending)
+                    sortedFolders = folders.OrderBy(e => e.Name);
+                    break;
+            }
 
-            _allEntries = folders.Concat(files).ToList();
+            // Sort files
+            System.Collections.Generic.IEnumerable<System.IO.FileSystemInfo> sortedFiles;
+            switch (_directorySortMode)
+            {
+                case 1: // Name (Descending)
+                    sortedFiles = files.OrderByDescending(e => e.Name);
+                    break;
+                case 2: // Date Modified (Newest First)
+                    sortedFiles = files.OrderByDescending(e => e.LastWriteTime);
+                    break;
+                case 3: // Date Modified (Oldest First)
+                    sortedFiles = files.OrderBy(e => e.LastWriteTime);
+                    break;
+                case 4: // Size (Largest First)
+                    sortedFiles = files.OrderByDescending(e => e is System.IO.FileInfo fi ? fi.Length : 0);
+                    break;
+                case 5: // Size (Smallest First)
+                    sortedFiles = files.OrderBy(e => e is System.IO.FileInfo fi ? fi.Length : 0);
+                    break;
+                default: // Name (Ascending)
+                    sortedFiles = files.OrderBy(e => e.Name);
+                    break;
+            }
+
+            _allEntries = sortedFolders.Concat(sortedFiles).ToList();
             _totalPageCount = (int)Math.Ceiling((double)_allEntries.Count / ItemsPerPage);
             if (_totalPageCount == 0) _totalPageCount = 1;
 
@@ -2482,17 +2786,29 @@ public partial class MainWindow : Window
             _directoryItems.Add(item);
         }
 
-        if (_breadcrumbText != null) _breadcrumbText.Text = _currentDirectoryPath;
+        if (_breadcrumbText != null)
+        {
+            if (!_breadcrumbText.IsFocused)
+            {
+                _breadcrumbText.Text = FormatBreadcrumbPath(_currentDirectoryPath);
+            }
+            else
+            {
+                _breadcrumbText.Text = _currentDirectoryPath;
+            }
+        }
         if (_pageNumberText != null) _pageNumberText.Text = $"Page {_currentPageIndex} / {_totalPageCount}";
 
         if (_prevPageButton != null)
         {
             _prevPageButton.IsEnabled = _currentPageIndex > 1;
+            _prevPageButton.IsHitTestVisible = _currentPageIndex > 1;
             _prevPageButton.Opacity = _currentPageIndex > 1 ? 1.0 : 0.2;
         }
         if (_nextPageButton != null)
         {
             _nextPageButton.IsEnabled = _currentPageIndex < _totalPageCount;
+            _nextPageButton.IsHitTestVisible = _currentPageIndex < _totalPageCount;
             _nextPageButton.Opacity = _currentPageIndex < _totalPageCount ? 1.0 : 0.2;
         }
 
@@ -2687,18 +3003,32 @@ public partial class MainWindow : Window
 
         string name = Path.GetFileName(filePath);
         string durationText = "--:--";
+        string sizeText = "";
+        Avalonia.Media.Imaging.Bitmap? thumbnail = null;
 
         var existing = _directoryItems.FirstOrDefault(x => x.FullPath == filePath);
-        if (existing != null && !string.IsNullOrEmpty(existing.DurationText))
+        if (existing != null)
         {
-            durationText = existing.DurationText;
+            if (!string.IsNullOrEmpty(existing.DurationText))
+                durationText = existing.DurationText;
+            if (!string.IsNullOrEmpty(existing.SizeText))
+                sizeText = existing.SizeText;
+            thumbnail = existing.Thumbnail;
+        }
+
+        // Compute file size if not available from directory items
+        if (string.IsNullOrEmpty(sizeText))
+        {
+            try { sizeText = FormatFileSize(new FileInfo(filePath).Length); } catch { }
         }
 
         var item = new QueueItemViewModel
         {
             Name = name,
             FullPath = filePath,
-            DurationText = durationText
+            DurationText = durationText,
+            SizeText = sizeText,
+            Thumbnail = thumbnail
         };
         _playbackQueueItems.Add(item);
         UpdateQueuePlaceholder();
@@ -2744,6 +3074,227 @@ public partial class MainWindow : Window
                 e.Handled = true;
             }
         }
+    }
+
+    private async void OnDirectoryItemPointerEntered(object? sender, Avalonia.Input.PointerEventArgs e)
+    {
+        if (sender is ScrollViewer scrollViewer)
+        {
+            if (scrollViewer.Tag is CancellationTokenSource oldCts)
+            {
+                oldCts.Cancel();
+                oldCts.Dispose();
+            }
+
+            var cts = new CancellationTokenSource();
+            scrollViewer.Tag = cts;
+            var token = cts.Token;
+
+            try
+            {
+                scrollViewer.HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden;
+
+                // Wait 500ms hover delay
+                await Task.Delay(500, token);
+
+                double maxScroll = scrollViewer.Extent.Width - scrollViewer.Viewport.Width;
+                if (maxScroll <= 0) return;
+
+                while (!token.IsCancellationRequested)
+                {
+                    double currentOffset = 0;
+                    double speed = 35.0; // pixels per second
+                    int fps = 60;
+                    int delayMs = 1000 / fps;
+                    double step = speed / fps;
+
+                    while (currentOffset < maxScroll && !token.IsCancellationRequested)
+                    {
+                        currentOffset = Math.Min(maxScroll, currentOffset + step);
+                        scrollViewer.Offset = new Vector(currentOffset, 0);
+                        await Task.Delay(delayMs, token);
+                    }
+
+                    if (!token.IsCancellationRequested)
+                    {
+                        await Task.Delay(1000, token);
+                    }
+
+                    double returnSpeed = 70.0;
+                    double returnStep = returnSpeed / fps;
+                    while (currentOffset > 0 && !token.IsCancellationRequested)
+                    {
+                        currentOffset = Math.Max(0, currentOffset - returnStep);
+                        scrollViewer.Offset = new Vector(currentOffset, 0);
+                        await Task.Delay(delayMs, token);
+                    }
+
+                    if (!token.IsCancellationRequested)
+                    {
+                        await Task.Delay(1000, token);
+                    }
+                }
+            }
+            catch (TaskCanceledException) { }
+            catch (Exception ex)
+            {
+                Log($"Directory scroll error: {ex.Message}");
+            }
+        }
+    }
+
+    private void OnDirectoryItemPointerExited(object? sender, Avalonia.Input.PointerEventArgs e)
+    {
+        if (sender is ScrollViewer scrollViewer)
+        {
+            if (scrollViewer.Tag is CancellationTokenSource cts)
+            {
+                cts.Cancel();
+                cts.Dispose();
+                scrollViewer.Tag = null;
+            }
+            scrollViewer.Offset = new Vector(0, 0);
+            scrollViewer.HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled;
+        }
+    }
+
+    private void OnDirectoryItemDetached(object? sender, VisualTreeAttachmentEventArgs e)
+    {
+        if (sender is ScrollViewer scrollViewer)
+        {
+            if (scrollViewer.Tag is CancellationTokenSource cts)
+            {
+                cts.Cancel();
+                cts.Dispose();
+                scrollViewer.Tag = null;
+            }
+        }
+    }
+
+    private void OnCurrentTimeTextPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+    {
+        if (sender is TextBlock textBlock)
+        {
+            _isEditingTime = true;
+            WakeTransportHUD();
+
+            if (textBlock.Name == "SingleCurrentTimeText" && _singleCurrentTimeInput != null)
+            {
+                textBlock.IsVisible = false;
+                _singleCurrentTimeInput.IsVisible = true;
+                _singleCurrentTimeInput.Text = textBlock.Text;
+                _singleCurrentTimeInput.Focus();
+                _singleCurrentTimeInput.SelectAll();
+            }
+            else if (textBlock.Name == "DeckCurrentTimeText" && _deckCurrentTimeInput != null)
+            {
+                textBlock.IsVisible = false;
+                _deckCurrentTimeInput.IsVisible = true;
+                _deckCurrentTimeInput.Text = textBlock.Text;
+                _deckCurrentTimeInput.Focus();
+                _deckCurrentTimeInput.SelectAll();
+            }
+        }
+    }
+
+    private void OnCurrentTimeInputKeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
+    {
+        if (sender is TextBox textBox)
+        {
+            if (e.Key == Avalonia.Input.Key.Enter)
+            {
+                string input = textBox.Text ?? "";
+                if (TryParseTime(input, out double targetSeconds) && targetSeconds >= 0 && targetSeconds <= _playbackDuration)
+                {
+                    textBox.ClearValue(TextBox.BorderBrushProperty);
+                    Log($"Manual time seek command: seek {targetSeconds:F3} absolute");
+                    SendCommand(_mpvHandle, "seek", targetSeconds.ToString("F3", System.Globalization.CultureInfo.InvariantCulture), "absolute");
+                    _lastSeekTime = DateTime.UtcNow;
+                    HideTimeInput(textBox);
+                }
+                else
+                {
+                    textBox.BorderBrush = Avalonia.Media.Brush.Parse("#FF5555");
+                    textBox.Focus();
+                    textBox.SelectAll();
+                }
+                e.Handled = true;
+            }
+            else if (e.Key == Avalonia.Input.Key.Escape)
+            {
+                HideTimeInput(textBox);
+                e.Handled = true;
+            }
+        }
+    }
+
+    private void OnCurrentTimeInputLostFocus(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is TextBox textBox)
+        {
+            HideTimeInput(textBox);
+        }
+    }
+
+    private void HideTimeInput(TextBox textBox)
+    {
+        _isEditingTime = false;
+        textBox.ClearValue(TextBox.BorderBrushProperty);
+        textBox.IsVisible = false;
+        if (textBox.Name == "SingleCurrentTimeInput" && _currentTimeTexts.Length > 0)
+        {
+            var txt = _currentTimeTexts.FirstOrDefault(t => t.Name == "SingleCurrentTimeText");
+            if (txt != null) txt.IsVisible = true;
+        }
+        else if (textBox.Name == "DeckCurrentTimeInput" && _currentTimeTexts.Length > 0)
+        {
+            var txt = _currentTimeTexts.FirstOrDefault(t => t.Name == "DeckCurrentTimeText");
+            if (txt != null) txt.IsVisible = true;
+        }
+        WakeTransportHUD();
+    }
+
+    private bool TryParseTime(string input, out double seconds)
+    {
+        seconds = 0;
+        if (string.IsNullOrWhiteSpace(input))
+            return false;
+
+        string[] parts = input.Trim().Split(':');
+        if (parts.Length == 1)
+        {
+            if (double.TryParse(parts[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double s))
+            {
+                seconds = s;
+                return true;
+            }
+            else if (double.TryParse(parts[0], out s))
+            {
+                seconds = s;
+                return true;
+            }
+        }
+        else if (parts.Length == 2)
+        {
+            if (double.TryParse(parts[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double m) &&
+                double.TryParse(parts[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double s))
+            {
+                seconds = m * 60 + s;
+                return true;
+            }
+        }
+        else if (parts.Length == 3)
+        {
+            if (double.TryParse(parts[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double h) &&
+                double.TryParse(parts[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double m) &&
+                double.TryParse(parts[2], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double s))
+            {
+                seconds = h * 3600 + m * 60 + s;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void OnDirectoryListBoxButtonClicked(object? sender, RoutedEventArgs e)
@@ -3077,11 +3628,7 @@ public partial class MainWindow : Window
     // --- Video Engine Matrix Applicators & Helpers ---
     private void ApplyHdrConfig(bool enable)
     {
-        if (!_isAnalyzeModeActive)
-        {
-            _manualHdrActive = enable;
-        }
-
+        _manualHdrActive = enable;
         _isHdrActive = enable;
         if (_mpvHandle == IntPtr.Zero || !_isEngineInitialized) 
         {
@@ -3104,7 +3651,7 @@ public partial class MainWindow : Window
             SetMpvPropertyString(_mpvHandle, "gpu-api", "d3d11");
             SetMpvPropertyString(_mpvHandle, "d3d11-output-csp", "pq");
             SetMpvPropertyString(_mpvHandle, "target-colorspace-hint", "yes");
-            SetMpvPropertyString(_mpvHandle, "hdr-compute-peak", "yes");
+            SetMpvPropertyString(_mpvHandle, "hdr-compute-peak", _disableHdrPeak ? "no" : "yes");
         }
         else
         {
@@ -3125,11 +3672,7 @@ public partial class MainWindow : Window
 
     private void ApplyDebandConfig(string mode)
     {
-        if (!_isAnalyzeModeActive)
-        {
-            _manualDebandMode = mode;
-        }
-
+        _manualDebandMode = mode;
         _currentDebandMode = mode;
         if (_mpvHandle == IntPtr.Zero || !_isEngineInitialized)
         {
@@ -3163,11 +3706,7 @@ public partial class MainWindow : Window
 
     private void ApplyScalingConfig(bool highFidelity)
     {
-        if (!_isAnalyzeModeActive)
-        {
-            _manualCinematicScaling = highFidelity;
-        }
-
+        _manualCinematicScaling = highFidelity;
         _isCinematicScaling = highFidelity;
         if (_mpvHandle == IntPtr.Zero || !_isEngineInitialized)
         {
@@ -3199,11 +3738,7 @@ public partial class MainWindow : Window
 
     private void ApplyToneMappingConfig(string algorithm)
     {
-        if (!_isAnalyzeModeActive)
-        {
-            _manualToneMapping = algorithm;
-        }
-
+        _manualToneMapping = algorithm;
         _currentToneMapping = algorithm;
         
         if (_toneMappingSelectedText != null)
@@ -3236,14 +3771,26 @@ public partial class MainWindow : Window
             if (_hdrSdrButton != null) ToggleClass(_hdrSdrButton, "active", !enable);
             if (_hdrActiveButton != null) ToggleClass(_hdrActiveButton, "active", enable);
             
-            // HUD buttons color and badge
-            var glowBrush = enable ? SolidColorBrush.Parse("#66AFFF") : SolidColorBrush.Parse("#5C647C");
+            // HUD Fullscreen/HDR Integration
+            if (_singleFullscreenButton != null) ToggleClass(_singleFullscreenButton, "hdr-active", enable);
+            if (_deckFullscreenButton != null) ToggleClass(_deckFullscreenButton, "hdr-active", enable);
             
-            if (_singleHdrIcon != null) _singleHdrIcon.Foreground = glowBrush;
-            if (_deckHdrIcon != null) _deckHdrIcon.Foreground = glowBrush;
-            
-            if (_singleHdrBadge != null) _singleHdrBadge.IsVisible = enable;
-            if (_deckHdrBadge != null) _deckHdrBadge.IsVisible = enable;
+            if (_singleFullscreenIcon != null)
+            {
+                if (enable) _singleFullscreenIcon.Foreground = SolidColorBrush.Parse("#66AFFF");
+                else _singleFullscreenIcon.ClearValue(Avalonia.Controls.Primitives.TemplatedControl.ForegroundProperty);
+            }
+            if (_deckFullscreenIcon != null)
+            {
+                if (enable) _deckFullscreenIcon.Foreground = SolidColorBrush.Parse("#66AFFF");
+                else _deckFullscreenIcon.ClearValue(Avalonia.Controls.Primitives.TemplatedControl.ForegroundProperty);
+            }
+
+            // Update sub-text dynamically
+            if (_renderingProfileSubText != null)
+            {
+                _renderingProfileSubText.Text = enable ? "[gpu-next // pq 10-bit]" : "[d3d11 // srgb]";
+            }
         });
     }
     
@@ -3259,6 +3806,17 @@ public partial class MainWindow : Window
             if (_debandOffButton != null) ToggleClass(_debandOffButton, "active", (mode == "Off" || mode == "Disabled"));
             if (_debandLowButton != null) ToggleClass(_debandLowButton, "active", (mode == "Low"));
             if (_debandRefButton != null) ToggleClass(_debandRefButton, "active", (mode == "Reference"));
+
+            // Update sub-text dynamically
+            if (_gradientSmoothingSubText != null)
+            {
+                if (mode == "Low")
+                    _gradientSmoothingSubText.Text = "1-pass balanced filter";
+                else if (mode == "Reference")
+                    _gradientSmoothingSubText.Text = "3-pass reference filter";
+                else
+                    _gradientSmoothingSubText.Text = "Banding filter disabled";
+            }
         });
     }
     
@@ -3272,6 +3830,12 @@ public partial class MainWindow : Window
             
             if (_scalePerfButton != null) ToggleClass(_scalePerfButton, "active", !isCinematic);
             if (_scaleCinematicButton != null) ToggleClass(_scaleCinematicButton, "active", isCinematic);
+
+            // Update sub-text dynamically
+            if (_imageSharpnessSubText != null)
+            {
+                _imageSharpnessSubText.Text = isCinematic ? "Cinematic EWA Lanczos" : "Fast Mitchell scaler";
+            }
         });
     }
     
@@ -3288,418 +3852,582 @@ public partial class MainWindow : Window
         }
     }
 
-    // --- Phase 2: SMART ANALYZE MODE IMPLEMENTATION ---
-    [DllImport("dxgi.dll", SetLastError = true)]
-    private static extern int CreateDXGIFactory1(ref Guid riid, out IDXGIFactory ppFactory);
-
-    private void UpdateAnalyzeModeSwitchUI()
+    private void ApplyEnvironmentProfile(string profile)
     {
-        bool active = _isAnalyzeModeActive;
-        if (_manualModeIndicator != null) _manualModeIndicator.IsVisible = !active;
-        if (_analyzeModeIndicator != null) _analyzeModeIndicator.IsVisible = active;
+        Log($"> ApplyEnvironmentProfile: {profile}");
+        _isUpdatingProfileProgrammatically = true;
 
-        if (_manualModeButton != null) ToggleClass(_manualModeButton, "active", !active);
-        if (_analyzeModeButton != null) ToggleClass(_analyzeModeButton, "active", active);
-        
-        if (_smartAnalyzeDashboard != null)
+        try
         {
-            _smartAnalyzeDashboard.IsVisible = active;
+            // Toggle active classes on Eco/Desktop/Enthusiast buttons
+            if (_envEcoButton != null) ToggleClass(_envEcoButton, "active", profile == "Eco");
+            if (_envDesktopButton != null) ToggleClass(_envDesktopButton, "active", profile == "Desktop");
+            if (_envEnthusiastButton != null) ToggleClass(_envEnthusiastButton, "active", profile == "Enthusiast");
+
+            // Update indicators visibility
+            if (_envEcoIndicator != null) _envEcoIndicator.IsVisible = (profile == "Eco");
+            if (_envDesktopIndicator != null) _envDesktopIndicator.IsVisible = (profile == "Desktop");
+            if (_envEnthusiastIndicator != null) _envEnthusiastIndicator.IsVisible = (profile == "Enthusiast");
+
+            // Update ComboBox selections based on profile
+            int scaleIdx = 1; // Default Spline36
+            int cscaleIdx = 1; // Default Spline36
+            int interpolationIdx = 0; // Default Off
+
+            if (profile == "Eco")
+            {
+                scaleIdx = 0; // Mitchell
+                cscaleIdx = 0; // Mitchell
+                interpolationIdx = 0; // Off
+                if (_envProfileSubText != null) _envProfileSubText.Text = "Eco Balance";
+            }
+            else if (profile == "Desktop")
+            {
+                scaleIdx = 1; // Spline36
+                cscaleIdx = 1; // Spline36
+                interpolationIdx = 0; // Off
+                if (_envProfileSubText != null) _envProfileSubText.Text = "Standard Balance";
+            }
+            else if (profile == "Enthusiast")
+            {
+                scaleIdx = 2; // EWA Lanczos
+                cscaleIdx = 2; // EWA Lanczos
+                interpolationIdx = 1; // On
+                if (_envProfileSubText != null) _envProfileSubText.Text = "High Fidelity Ultra";
+            }
+
+            if (_scaleComboBox != null) _scaleComboBox.SelectedIndex = scaleIdx;
+            if (_cScaleComboBox != null) _cScaleComboBox.SelectedIndex = cscaleIdx;
+            if (_interpolationComboBox != null) _interpolationComboBox.SelectedIndex = interpolationIdx;
+
+            ApplyAdvancedTuningToMpv();
+        }
+        finally
+        {
+            _isUpdatingProfileProgrammatically = false;
         }
     }
 
-    private void EnableAnalyzeMode()
+    private void ApplyAdvancedTuningFromUI()
     {
-        _isAnalyzeModeActive = true;
-        
-        // Fades/Locks Phase 1 manual options controls
-        if (_manualControlsContainer != null)
-        {
-            _manualControlsContainer.Opacity = 0.3;
-            _manualControlsContainer.IsHitTestVisible = false;
-        }
+        if (_isUpdatingProfileProgrammatically) return;
 
-        Log("> SMART ANALYZE MODE ENGAGED. INIT HARDWARE EVALUATION...");
-        
-        EvaluateActiveDisplayHardware();
-        EvaluateSystemHardware();
-        RunAutomatedRuleChain();
-        StartSafetyValveLoop();
+        Log("> ApplyAdvancedTuningFromUI: User modified ComboBox values manually.");
+
+        // Clear Environment Profile active classes
+        if (_envEcoButton != null) ToggleClass(_envEcoButton, "active", false);
+        if (_envDesktopButton != null) ToggleClass(_envDesktopButton, "active", false);
+        if (_envEnthusiastButton != null) ToggleClass(_envEnthusiastButton, "active", false);
+
+        // Clear environment indicators
+        if (_envEcoIndicator != null) _envEcoIndicator.IsVisible = false;
+        if (_envDesktopIndicator != null) _envDesktopIndicator.IsVisible = false;
+        if (_envEnthusiastIndicator != null) _envEnthusiastIndicator.IsVisible = false;
+
+        if (_envProfileSubText != null) _envProfileSubText.Text = "Custom Profile";
+
+        ApplyAdvancedTuningToMpv();
     }
 
-    private void DisableAnalyzeMode()
+    private void ApplyAdvancedTuningToMpv()
     {
-        _isAnalyzeModeActive = false;
-        StopSafetyValveLoop();
+        if (_mpvHandle == IntPtr.Zero || !_isEngineInitialized) return;
 
-        // Restore Phase 1 manual options controls visual states
-        if (_manualControlsContainer != null)
+        int scaleIdx = _scaleComboBox != null ? _scaleComboBox.SelectedIndex : 1;
+        int cscaleIdx = _cScaleComboBox != null ? _cScaleComboBox.SelectedIndex : 1;
+        int interpolationIdx = _interpolationComboBox != null ? _interpolationComboBox.SelectedIndex : 0;
+
+        Log($"Applying Advanced Tuning to MPV -> Scale index: {scaleIdx}, CScale index: {cscaleIdx}, Interpolation: {interpolationIdx}");
+
+        // Map Scale index
+        string scaleVal = "spline36";
+        if (scaleIdx == 0) scaleVal = "mitchell";
+        else if (scaleIdx == 2) scaleVal = "ewa_lanczos";
+
+        // Map CScale index
+        string cscaleVal = "spline36";
+        if (cscaleIdx == 0) cscaleVal = "mitchell";
+        else if (cscaleIdx == 2) cscaleVal = "ewa_lanczos";
+
+        // Apply scale, cscale, and dscale/sigmoid upscaling fallback
+        SetMpvPropertyString(_mpvHandle, "scale", scaleVal);
+        SetMpvPropertyString(_mpvHandle, "cscale", cscaleVal);
+        
+        if (scaleVal == "ewa_lanczos")
         {
-            _manualControlsContainer.Opacity = 1.0;
-            _manualControlsContainer.IsHitTestVisible = true;
+            SetMpvPropertyString(_mpvHandle, "dscale", "mitchell");
+            SetMpvPropertyString(_mpvHandle, "scale-antiring", "0.7");
+            SetMpvPropertyString(_mpvHandle, "sigmoid-upscaling", "yes");
+        }
+        else
+        {
+            SetMpvPropertyString(_mpvHandle, "scale-antiring", "0.0");
+            SetMpvPropertyString(_mpvHandle, "sigmoid-upscaling", "no");
         }
 
-        Log("> SMART ANALYZE MODE DEACTIVATED. RESTORING USER SNAPSHOT...");
+        if (cscaleVal == "ewa_lanczos")
+        {
+            SetMpvPropertyString(_mpvHandle, "cscale-antiring", "0.7");
+        }
+        else
+        {
+            SetMpvPropertyString(_mpvHandle, "cscale-antiring", "0.0");
+        }
 
-        // Re-pipe saved manual configurations instantly to unmanaged handle
-        ApplyHdrConfig(_manualHdrActive);
-        ApplyDebandConfig(_manualDebandMode);
-        ApplyScalingConfig(_manualCinematicScaling);
-        ApplyToneMappingConfig(_manualToneMapping);
+        // Map and apply Interpolation index
+        if (interpolationIdx == 1)
+        {
+            SetMpvPropertyString(_mpvHandle, "interpolation", "yes");
+            SetMpvPropertyString(_mpvHandle, "video-sync", "display-resample");
+        }
+        else
+        {
+            SetMpvPropertyString(_mpvHandle, "interpolation", "no");
+            SetMpvPropertyString(_mpvHandle, "video-sync", "audio");
+        }
+    }
+
+
+    // --- Phase 2: MANUAL MONITOR PROFILE OVERRIDES & UTILITIES ---
+    private string FormatBreadcrumbPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return "";
+        var parts = path.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
+        return string.Join(" ❯ ", parts.Select(p => p.ToUpperInvariant()));
+    }
+
+    private void ApplyManualMonitorProfile()
+    {
+        if (_mpvHandle == IntPtr.Zero || !_isEngineInitialized) return;
+
+        string profile = _hdrDisplayProfileOverride;
+        Log($"Applying Manual Monitor Profile: {profile}");
+
+        if (profile == "400 Nit OLED")
+        {
+            SetMpvPropertyString(_mpvHandle, "target-contrast", "inf");
+            SetMpvPropertyString(_mpvHandle, "target-peak", "400");
+        }
+        else // "1000 Nit Peak"
+        {
+            SetMpvPropertyString(_mpvHandle, "target-contrast", "default");
+            SetMpvPropertyString(_mpvHandle, "target-peak", "1000");
+        }
     }
 
     private void SetHdrProfileOverride(string profileName)
     {
         _hdrDisplayProfileOverride = profileName;
 
-        if (_hdrProfileAutoIndicator != null) _hdrProfileAutoIndicator.IsVisible = (profileName == "Auto-EDID");
-        if (_hdrProfile400Indicator != null) _hdrProfile400Indicator.IsVisible = (profileName == "400 Nits OLED");
-        if (_hdrProfile1000Indicator != null) _hdrProfile1000Indicator.IsVisible = (profileName == "1000 Nits Peak");
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_hdrProfile400Indicator != null) _hdrProfile400Indicator.IsVisible = (profileName == "400 Nit OLED");
+            if (_hdrProfile1000Indicator != null) _hdrProfile1000Indicator.IsVisible = (profileName == "1000 Nit Peak");
 
-        if (_hdrProfileAutoButton != null) ToggleClass(_hdrProfileAutoButton, "active", profileName == "Auto-EDID");
-        if (_hdrProfile400Button != null) ToggleClass(_hdrProfile400Button, "active", profileName == "400 Nits OLED");
-        if (_hdrProfile1000Button != null) ToggleClass(_hdrProfile1000Button, "active", profileName == "1000 Nits Peak");
+            if (_hdrProfile400Button != null) ToggleClass(_hdrProfile400Button, "active", profileName == "400 Nit OLED");
+            if (_hdrProfile1000Button != null) ToggleClass(_hdrProfile1000Button, "active", profileName == "1000 Nit Peak");
+        });
 
         Log($"> MONITOR OSD OVERRIDE SELECT: {profileName}");
 
-        EvaluateActiveDisplayHardware();
+        ApplyManualMonitorProfile();
+        SaveSettings();
     }
 
-#pragma warning disable CA1416 // Windows only DXGI/Marshal calls
-    private void EvaluateActiveDisplayHardware()
+    private void LoadSettings()
     {
-        float minLuminance = 0.005f;
-        float maxLuminance = 300f;
-        bool isOled = false;
-        bool dxgiSuccess = false;
-
         try
         {
-            Guid factoryGuid = new Guid("7b7166ec-21c7-44ae-901a-31a3596a4a11");
-            int hr = CreateDXGIFactory1(ref factoryGuid, out IDXGIFactory factory);
-            if (hr == 0 && factory != null)
+            string settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "settings.json");
+            if (File.Exists(settingsPath))
             {
-                hr = factory.EnumAdapters(0, out IDXGIAdapter adapter);
-                if (hr == 0 && adapter != null)
+                string json = File.ReadAllText(settingsPath);
+                var settings = JsonSerializer.Deserialize<UserSettings>(json);
+                if (settings != null)
                 {
-                    hr = adapter.EnumOutputs(0, out IntPtr ppOutput);
-                    if (hr == 0 && ppOutput != IntPtr.Zero)
-                    {
-                        Guid uuidIDXGIOutput6 = new Guid("068346e8-aaec-4b84-add7-137f513f77a1");
-                        hr = Marshal.QueryInterface(ppOutput, in uuidIDXGIOutput6, out IntPtr ppOutput6);
-                        if (hr == 0 && ppOutput6 != IntPtr.Zero)
-                        {
-                            // Call via vtable pointer offset to prevent mapping out 27 inherited COM methods
-                            IntPtr vtable = Marshal.ReadIntPtr(ppOutput6);
-                            IntPtr getDesc1Ptr = Marshal.ReadIntPtr(vtable, 26 * IntPtr.Size);
-                            var getDesc1 = (GetDesc1Delegate)Marshal.GetDelegateForFunctionPointer(getDesc1Ptr, typeof(GetDesc1Delegate));
-
-                            hr = getDesc1(ppOutput6, out DXGI_OUTPUT_DESC1 desc);
-                            if (hr == 0)
-                            {
-                                minLuminance = desc.MinLuminance;
-                                maxLuminance = desc.MaxLuminance;
-                                isOled = (minLuminance == 0.0f);
-                                dxgiSuccess = true;
-                                Log($"DXGI Display Evaluated: {desc.DeviceName}, MinLum={minLuminance}, MaxLum={maxLuminance}");
-                            }
-                            Marshal.Release(ppOutput6);
-                        }
-                        Marshal.Release(ppOutput);
-                    }
-                    Marshal.Release(Marshal.GetIUnknownForObject(adapter));
+                    _isTacticalDeckMode = settings.IsTacticalDeckMode;
+                    _showSystemClock = settings.ShowSystemClock;
+                    _use24HourClock = settings.Use24HourClock;
+                    _defaultBootDirectoryPath = settings.DefaultBootDirectoryPath ?? "";
+                    _rememberLastDirectoryPath = settings.RememberLastDirectoryPath;
+                    _lastDirectoryPath = settings.LastDirectoryPath ?? "";
+                    _allowMultipleInstances = settings.AllowMultipleInstances;
+                    _disableHdrPeak = settings.DisableHdrPeak;
+                    _forceSoftwareDecoding = settings.ForceSoftwareDecoding;
+                    _defaultAudioLanguage = settings.DefaultAudioLanguage ?? "eng";
+                    _passthroughAc3 = settings.PassthroughAc3;
+                    _passthroughDts = settings.PassthroughDts;
+                    _passthroughDtsHd = settings.PassthroughDtsHd;
+                    _passthroughTrueHd = settings.PassthroughTrueHd;
+                    _wasapiExclusive = settings.WasapiExclusive;
+                    _subtitleFontFamily = settings.SubtitleFontFamily ?? "";
+                    _subtitleBorderSize = settings.SubtitleBorderSize;
+                    _subtitleShadowOffset = settings.SubtitleShadowOffset;
+                    _defaultWorkspaceTab = settings.DefaultWorkspaceTab ?? "Queue";
+                    _disableOsdNotifications = settings.DisableOsdNotifications;
+                    _disableSeekingPreviews = settings.DisableSeekingPreviews;
+                    _directorySortMode = settings.DirectorySortMode;
+                    _hdrDisplayProfileOverride = settings.HdrDisplayProfileOverride ?? "400 Nit OLED";
                 }
-                Marshal.Release(Marshal.GetIUnknownForObject(factory));
             }
         }
         catch (Exception ex)
         {
-            Log($"DXGI Hardware Evaluation failed gracefully: {ex.Message}");
+            Log($"Error loading settings: {ex.Message}");
         }
-
-        ApplyMonitorProfile(isOled, minLuminance, maxLuminance, dxgiSuccess);
     }
 
-    private void ApplyMonitorProfile(bool isOled, float minLuminance, float maxLuminance, bool dxgiSuccess)
-    {
-        double dxgiCalculatedMaxLuminance = maxLuminance;
-        // Override Check Logic Example
-        double targetPeak = (_hdrDisplayProfileOverride == "400 Nits OLED") ? 400.0 :
-                            (_hdrDisplayProfileOverride == "1000 Nits Peak") ? 1000.0 : 
-                            dxgiCalculatedMaxLuminance;
-                            
-        bool finalIsOled = (_hdrDisplayProfileOverride == "400 Nits OLED") ? true :
-                           (_hdrDisplayProfileOverride == "1000 Nits Peak") ? false :
-                           isOled;
-
-        if (_mpvHandle != IntPtr.Zero && _isEngineInitialized)
-        {
-            if (finalIsOled)
-            {
-                SetMpvPropertyString(_mpvHandle, "target-contrast", "inf");
-            }
-            else
-            {
-                SetMpvPropertyString(_mpvHandle, "target-contrast", "default");
-            }
-
-            SetMpvPropertyString(_mpvHandle, "target-peak", targetPeak.ToString("F0", System.Globalization.CultureInfo.InvariantCulture));
-        }
-
-        // Direct bind evaluated values to visual dashboard labels on the UI thread
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (_dashboardDisplayIdentity != null)
-            {
-                _dashboardDisplayIdentity.Text = string.IsNullOrEmpty(_gpuName) || _gpuName == "Unknown GPU"
-                    ? (dxgiSuccess ? "Display 01: DXGI DETECTED PANEL" : "Display 01: Generic SDR Display")
-                    : $"Display 01: {_gpuName}";
-            }
-
-            if (_dashboardDisplayLuminance != null)
-            {
-                _dashboardDisplayLuminance.Text = $"Peak Target: {targetPeak:F0} Nits // {(finalIsOled ? "Infinite CR (OLED)" : "Standard CR")}";
-            }
-
-            if (_dashboardAdvisorText != null)
-            {
-                if (Math.Abs(targetPeak - 400.0) < 50.0)
-                {
-                    _dashboardAdvisorText.Text = "Set Windows OSD settings to 'VESA DisplayHDR True Black 400' for optimal tone-mapping response.";
-                }
-                else if (Math.Abs(targetPeak - 1000.0) < 150.0)
-                {
-                    _dashboardAdvisorText.Text = "Set Windows OSD settings to 'HDR Peak 1000' for optimal tone-mapping response.";
-                }
-                else
-                {
-                    _dashboardAdvisorText.Text = $"No specific hardware optimization required. Calibrated target peak: {targetPeak:F0} Nits.";
-                }
-            }
-        });
-
-        Log($"Monitor Profile applied -> Override: {_hdrDisplayProfileOverride}, TargetPeak: {targetPeak:F0}, OLED: {finalIsOled}");
-    }
-
-    private void EvaluateSystemHardware()
+    private void SaveSettings()
     {
         try
         {
-            Guid factoryGuid = new Guid("7b7166ec-21c7-44ae-901a-31a3596a4a11");
-            int hr = CreateDXGIFactory1(ref factoryGuid, out IDXGIFactory factory);
-            if (hr == 0 && factory != null)
+            var settings = new UserSettings
             {
-                hr = factory.EnumAdapters(0, out IDXGIAdapter adapter);
-                if (hr == 0 && adapter != null)
-                {
-                    hr = adapter.GetDesc(out DXGI_ADAPTER_DESC desc);
-                    if (hr == 0)
-                    {
-                        _gpuName = desc.Description;
-                        _gpuVramBytes = (ulong)desc.DedicatedVideoMemory.ToUInt64();
-                        
-                        double vramGb = _gpuVramBytes / (1024.0 * 1024.0 * 1024.0);
-                        if (vramGb >= 8.0) _systemTier = 3;
-                        else if (vramGb >= 4.0) _systemTier = 2;
-                        else _systemTier = 1;
-
-                        Log($"System hardware evaluated -> GPU: {_gpuName}, VRAM: {vramGb:F2} GB (Tier {_systemTier})");
-                    }
-                    Marshal.Release(Marshal.GetIUnknownForObject(adapter));
-                }
-                Marshal.Release(Marshal.GetIUnknownForObject(factory));
-            }
+                IsTacticalDeckMode = _isTacticalDeckMode,
+                ShowSystemClock = _showSystemClock,
+                Use24HourClock = _use24HourClock,
+                DefaultBootDirectoryPath = _defaultBootDirectoryPath,
+                RememberLastDirectoryPath = _rememberLastDirectoryPath,
+                LastDirectoryPath = _rememberLastDirectoryPath ? _currentDirectoryPath : "",
+                AllowMultipleInstances = _allowMultipleInstances,
+                DisableHdrPeak = _disableHdrPeak,
+                ForceSoftwareDecoding = _forceSoftwareDecoding,
+                DefaultAudioLanguage = _defaultAudioLanguage,
+                PassthroughAc3 = _passthroughAc3,
+                PassthroughDts = _passthroughDts,
+                PassthroughDtsHd = _passthroughDtsHd,
+                PassthroughTrueHd = _passthroughTrueHd,
+                WasapiExclusive = _wasapiExclusive,
+                SubtitleFontFamily = _subtitleFontFamily,
+                SubtitleBorderSize = _subtitleBorderSize,
+                SubtitleShadowOffset = _subtitleShadowOffset,
+                DefaultWorkspaceTab = _defaultWorkspaceTab,
+                DisableOsdNotifications = _disableOsdNotifications,
+                DisableSeekingPreviews = _disableSeekingPreviews,
+                DirectorySortMode = _directorySortMode,
+                HdrDisplayProfileOverride = _hdrDisplayProfileOverride
+            };
+            string settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "settings.json");
+            string json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(settingsPath, json);
         }
         catch (Exception ex)
         {
-            Log($"System Rig profiling failed: {ex.Message}");
-            _systemTier = 1;
+            Log($"Error saving settings: {ex.Message}");
         }
-
-        // Update display identity text on UI thread
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (_dashboardDisplayIdentity != null)
-            {
-                _dashboardDisplayIdentity.Text = $"Display 01: {_gpuName}";
-            }
-        });
     }
-#pragma warning restore CA1416
 
-    private void RunAutomatedRuleChain()
+    private void ApplyAudioSettings()
     {
-        if (!_isAnalyzeModeActive || _mpvHandle == IntPtr.Zero || !_isEngineInitialized) return;
+        if (_mpvHandle == IntPtr.Zero || !_isEngineInitialized) return;
+        Log($"Applying custom settings -> alang={_defaultAudioLanguage}, audio-exclusive={_wasapiExclusive}");
+        SetMpvOptionString(_mpvHandle, "alang", _defaultAudioLanguage ?? "eng");
+        SetMpvOptionString(_mpvHandle, "audio-exclusive", _wasapiExclusive ? "yes" : "no");
+        
+        var spdif = new System.Collections.Generic.List<string>();
+        if (_passthroughAc3) spdif.Add("ac3");
+        if (_passthroughDts) spdif.Add("dts");
+        if (_passthroughDtsHd) spdif.Add("dts-hd");
+        if (_passthroughTrueHd) spdif.Add("truehd");
+        string spdifStr = spdif.Count > 0 ? string.Join(",", spdif) : "no";
+        SetMpvOptionString(_mpvHandle, "audio-spdif", spdifStr);
+    }
 
-        Log("Evaluating Automated Rules (Smart Analyze Mode)...");
-
-        // 1. Bitrate Fingerprinting
-        double fileSizeBytes = GetMpvPropertyDouble("file-size");
-        double durationSeconds = GetMpvPropertyDouble("duration");
-        if (double.IsNaN(durationSeconds) || durationSeconds <= 0)
+    private void ApplyTypographySettings()
+    {
+        if (_mpvHandle == IntPtr.Zero || !_isEngineInitialized) return;
+        Log($"Applying custom settings -> sub-border-size={_subtitleBorderSize}, sub-shadow-offset={_subtitleShadowOffset}");
+        if (!string.IsNullOrEmpty(_subtitleFontFamily))
         {
-            durationSeconds = _playbackDuration;
+            SetMpvPropertyString(_mpvHandle, "sub-font", _subtitleFontFamily);
         }
+        SetMpvPropertyDouble(_mpvHandle, "sub-border-size", _subtitleBorderSize);
+        SetMpvPropertyDouble(_mpvHandle, "sub-shadow-offset", _subtitleShadowOffset);
+    }
 
-        double bitrateMbps = 0;
-        if (fileSizeBytes > 0 && durationSeconds > 0)
-        {
-            bitrateMbps = (fileSizeBytes * 8.0) / (durationSeconds * 1000000.0);
-        }
+    private void ApplyDecodingSettings()
+    {
+        if (_mpvHandle == IntPtr.Zero || !_isEngineInitialized) return;
+        Log($"Applying custom settings -> hwdec={(_forceSoftwareDecoding ? "no" : "auto")}");
+        SetMpvPropertyString(_mpvHandle, "hwdec", _forceSoftwareDecoding ? "no" : "auto");
+    }
 
-        // Bitrate-based Debanding Rule
-        string debandStatusText = "OFF";
-        if (bitrateMbps > 0 && bitrateMbps < 5.0)
+    private void OpenSettings()
+    {
+        if (_masterSettingsOverlay == null) return;
+        
+        // Populate settings elements from fields
+        if (_defaultBootDirTextBox != null) _defaultBootDirTextBox.Text = _defaultBootDirectoryPath;
+        if (_rememberLastDirToggle != null) _rememberLastDirToggle.IsChecked = _rememberLastDirectoryPath;
+        if (_allowMultipleInstancesToggle != null) _allowMultipleInstancesToggle.IsChecked = _allowMultipleInstances;
+        if (_disableHdrPeakToggle != null) _disableHdrPeakToggle.IsChecked = _disableHdrPeak;
+        if (_forceSoftwareDecodingToggle != null) _forceSoftwareDecodingToggle.IsChecked = _forceSoftwareDecoding;
+        if (_defaultAudioLangTextBox != null) _defaultAudioLangTextBox.Text = _defaultAudioLanguage;
+        
+        if (_passthroughAc3CheckBox != null) _passthroughAc3CheckBox.IsChecked = _passthroughAc3;
+        if (_passthroughDtsCheckBox != null) _passthroughDtsCheckBox.IsChecked = _passthroughDts;
+        if (_passthroughDtsHdCheckBox != null) _passthroughDtsHdCheckBox.IsChecked = _passthroughDtsHd;
+        if (_passthroughTrueHdCheckBox != null) _passthroughTrueHdCheckBox.IsChecked = _passthroughTrueHd;
+        if (_wasapiExclusiveToggle != null) _wasapiExclusiveToggle.IsChecked = _wasapiExclusive;
+        
+        if (_subtitleFontComboBox != null) _subtitleFontComboBox.SelectedItem = _subtitleFontFamily;
+        if (_subBorderSizeSlider != null) _subBorderSizeSlider.Value = _subtitleBorderSize;
+        if (_subShadowOffsetSlider != null) _subShadowOffsetSlider.Value = _subtitleShadowOffset;
+        
+        if (_defaultWorkspaceTabComboBox != null)
         {
-            ApplyDebandConfig("Reference");
-            debandStatusText = "REFERENCE (LOW BITRATE)";
-        }
-        else
-        {
-            // Tier based default debanding
-            if (_systemTier == 3)
+            _defaultWorkspaceTabComboBox.SelectedIndex = _defaultWorkspaceTab switch
             {
-                ApplyDebandConfig("Reference");
-                debandStatusText = "REFERENCE (HIGH SPEC)";
-            }
-            else if (_systemTier == 2)
+                "Queue" => 0,
+                "Directory" => 1,
+                "Engine" => 2,
+                _ => 0
+            };
+        }
+        
+        if (_disableOsdNotificationsToggle != null) _disableOsdNotificationsToggle.IsChecked = _disableOsdNotifications;
+        if (_disableSeekingPreviewsToggle != null) _disableSeekingPreviewsToggle.IsChecked = _disableSeekingPreviews;
+        if (_tacticalDeckToggle != null) _tacticalDeckToggle.IsChecked = _isTacticalDeckMode;
+        if (_showSystemClockToggle != null) _showSystemClockToggle.IsChecked = _showSystemClock;
+        if (_clockFormatComboBox != null) _clockFormatComboBox.SelectedIndex = _use24HourClock ? 0 : 1;
+
+        if (_videoSurface != null) _videoSurface.IsVisible = false;
+        _masterSettingsOverlay.IsVisible = true;
+        Dispatcher.UIThread.Post(() => _masterSettingsOverlay.Opacity = 1.0);
+        Log("Fullscreen Settings Overlay opened.");
+    }
+
+    private async void CloseSettings()
+    {
+        if (_masterSettingsOverlay == null) return;
+
+        // Retrieve settings elements to fields
+        if (_defaultBootDirTextBox != null) _defaultBootDirectoryPath = _defaultBootDirTextBox.Text ?? "";
+        if (_rememberLastDirToggle != null) _rememberLastDirectoryPath = _rememberLastDirToggle.IsChecked ?? true;
+        if (_allowMultipleInstancesToggle != null) _allowMultipleInstances = _allowMultipleInstancesToggle.IsChecked ?? false;
+        
+        if (_disableHdrPeakToggle != null) _disableHdrPeak = _disableHdrPeakToggle.IsChecked ?? false;
+        if (_forceSoftwareDecodingToggle != null) _forceSoftwareDecoding = _forceSoftwareDecodingToggle.IsChecked ?? false;
+        if (_defaultAudioLangTextBox != null) _defaultAudioLanguage = _defaultAudioLangTextBox.Text ?? "eng";
+        
+        if (_passthroughAc3CheckBox != null) _passthroughAc3 = _passthroughAc3CheckBox.IsChecked ?? false;
+        if (_passthroughDtsCheckBox != null) _passthroughDts = _passthroughDtsCheckBox.IsChecked ?? false;
+        if (_passthroughDtsHdCheckBox != null) _passthroughDtsHd = _passthroughDtsHdCheckBox.IsChecked ?? false;
+        if (_passthroughTrueHdCheckBox != null) _passthroughTrueHd = _passthroughTrueHdCheckBox.IsChecked ?? false;
+        if (_wasapiExclusiveToggle != null) _wasapiExclusive = _wasapiExclusiveToggle.IsChecked ?? false;
+        
+        if (_subtitleFontComboBox != null) _subtitleFontFamily = _subtitleFontComboBox.SelectedItem as string ?? "";
+        if (_subBorderSizeSlider != null) _subtitleBorderSize = _subBorderSizeSlider.Value;
+        if (_subShadowOffsetSlider != null) _subtitleShadowOffset = _subShadowOffsetSlider.Value;
+        
+        if (_defaultWorkspaceTabComboBox != null)
+        {
+            _defaultWorkspaceTab = _defaultWorkspaceTabComboBox.SelectedIndex switch
             {
-                ApplyDebandConfig("Low");
-                debandStatusText = "LOW (BALANCED)";
+                0 => "Queue",
+                1 => "Directory",
+                2 => "Engine",
+                _ => "Queue"
+            };
+        }
+        
+        if (_disableOsdNotificationsToggle != null) _disableOsdNotifications = _disableOsdNotificationsToggle.IsChecked ?? false;
+        if (_disableSeekingPreviewsToggle != null) _disableSeekingPreviews = _disableSeekingPreviewsToggle.IsChecked ?? false;
+
+        bool oldMode = _isTacticalDeckMode;
+        if (_tacticalDeckToggle != null) _isTacticalDeckMode = _tacticalDeckToggle.IsChecked ?? false;
+        if (_isTacticalDeckMode != oldMode)
+        {
+            ApplyLayoutMode();
+        }
+
+        bool oldShowClock = _showSystemClock;
+        bool old24Hour = _use24HourClock;
+        if (_showSystemClockToggle != null) _showSystemClock = _showSystemClockToggle.IsChecked ?? false;
+        if (_clockFormatComboBox != null) _use24HourClock = _clockFormatComboBox.SelectedIndex == 0;
+        if (_showSystemClock != oldShowClock || _use24HourClock != old24Hour)
+        {
+            if (_showSystemClock)
+            {
+                UpdateSystemClockText();
+                _systemClockTimer?.Start();
             }
             else
             {
-                ApplyDebandConfig("Off");
-                debandStatusText = "OFF";
+                SetSystemClockVisibility(false);
+                _systemClockTimer?.Stop();
             }
         }
 
-        // Hardware Tier-based Upscaling Shaders Configuration
-        string scaleStatusText = "PERFORMANCE (MITCHELL)";
-        if (_systemTier == 3)
-        {
-            ApplyScalingConfig(true); // Cinematic EWA Lanczos
-            scaleStatusText = "CINEMATIC (EWA LANCZOS)";
-        }
-        else if (_systemTier == 2)
-        {
-            ApplyScalingConfig(false); // Mitchell / Spline balanced
-            scaleStatusText = "BALANCED (MITCHELL)";
-        }
-        else
-        {
-            ApplyScalingConfig(false); // Bilinear safe fallback
-            scaleStatusText = "PERFORMANCE (MITCHELL)";
-            if (_systemTier == 1)
-            {
-                SetMpvPropertyString(_mpvHandle, "scale", "bilinear");
-                SetMpvPropertyString(_mpvHandle, "cscale", "bilinear");
-                scaleStatusText = "LOW-SPEC (BILINEAR)";
-            }
-        }
+        // Apply dynamic parameters to running media engine instance
+        ApplyAudioSettings();
+        ApplyTypographySettings();
+        ApplyDecodingSettings();
 
-        // 2. Color Space Syncing
-        string gamma = GetMpvPropertyString("video-params/gamma") ?? "unknown";
-        string hdrStatusText = "INACTIVE";
-        if (gamma == "pq" || gamma == "hlg")
-        {
-            ApplyHdrConfig(true);
-            hdrStatusText = $"ACTIVE ({gamma.ToUpper()})";
-        }
-        else
-        {
-            ApplyHdrConfig(false);
-            hdrStatusText = "INACTIVE";
-        }
 
-        // Update the dashboard labels!
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (_dashboardHdrStatus != null)
-            {
-                _dashboardHdrStatus.Text = hdrStatusText;
-            }
-            if (_dashboardDebandStatus != null)
-            {
-                _dashboardDebandStatus.Text = debandStatusText;
-            }
-            if (_dashboardChromaStatus != null)
-            {
-                _dashboardChromaStatus.Text = scaleStatusText;
-            }
-        });
 
-        Log($"Automated Rules evaluated -> Bitrate: {bitrateMbps:F2} Mbps, Deband: {debandStatusText}, Scaling: {scaleStatusText}, HDR: {hdrStatusText}");
+        SaveSettings();
+
+        _masterSettingsOverlay.Opacity = 0.0;
+        await Task.Delay(250);
+        _masterSettingsOverlay.IsVisible = false;
+        if (_videoSurface != null) _videoSurface.IsVisible = true;
+        WakeTransportHUD();
+        Log("Fullscreen Settings Overlay closed and properties synchronized.");
     }
 
-    private void StartSafetyValveLoop()
+    private void ScrollToSection(Control targetSection)
     {
-        _safetyValveCts?.Cancel();
-        _safetyValveCts = new System.Threading.CancellationTokenSource();
-        var token = _safetyValveCts.Token;
-
-        _lastDropFrameCount = GetMpvPropertyLong("vo-drop-frame-count");
-
-        Task.Run(async () =>
+        if (_settingsScrollViewer == null) return;
+        var relativePoint = targetSection.TranslatePoint(new Point(0, 0), _settingsScrollViewer);
+        if (relativePoint.HasValue)
         {
-            Log("Dynamic Performance Safety Valve Loop enabled.");
-            while (!token.IsCancellationRequested)
+            double newY = _settingsScrollViewer.Offset.Y + relativePoint.Value.Y;
+            _settingsScrollViewer.Offset = new Vector(_settingsScrollViewer.Offset.X, Math.Max(0, newY));
+        }
+    }
+
+    private void PopulateSubtitleFonts()
+    {
+        if (_subtitleFontComboBox == null) return;
+        try
+        {
+            var fontFamilies = Avalonia.Media.FontManager.Current.SystemFonts.Select(f => f.Name).OrderBy(n => n).ToList();
+            _subtitleFontComboBox.ItemsSource = fontFamilies;
+        }
+        catch (Exception ex)
+        {
+            Log($"Error loading system fonts: {ex.Message}");
+        }
+    }
+
+    private void SetupSettingsPanel()
+    {
+        _masterSettingsOverlay = this.FindControl<Grid>("MasterSettingsOverlay");
+        _settingsCloseButton = this.FindControl<Button>("SettingsCloseButton");
+        _settingsScrollViewer = this.FindControl<ScrollViewer>("SettingsScrollViewer");
+        
+        _navGeneralButton = this.FindControl<Button>("NavGeneralButton");
+        _navEngineButton = this.FindControl<Button>("NavEngineButton");
+        _navAudioButton = this.FindControl<Button>("NavAudioButton");
+        _navSubtitlesButton = this.FindControl<Button>("NavSubtitlesButton");
+        _navUiButton = this.FindControl<Button>("NavUiButton");
+
+        _defaultBootDirTextBox = this.FindControl<TextBox>("DefaultBootDirTextBox");
+        _browseBootDirButton = this.FindControl<Button>("BrowseBootDirButton");
+        _rememberLastDirToggle = this.FindControl<ToggleSwitch>("RememberLastDirToggle");
+        _allowMultipleInstancesToggle = this.FindControl<ToggleSwitch>("AllowMultipleInstancesToggle");
+        
+        _disableHdrPeakToggle = this.FindControl<ToggleSwitch>("DisableHdrPeakToggle");
+        _forceSoftwareDecodingToggle = this.FindControl<ToggleSwitch>("ForceSoftwareDecodingToggle");
+        
+        _defaultAudioLangTextBox = this.FindControl<TextBox>("DefaultAudioLangTextBox");
+        _passthroughAc3CheckBox = this.FindControl<CheckBox>("PassthroughAc3CheckBox");
+        _passthroughDtsCheckBox = this.FindControl<CheckBox>("PassthroughDtsCheckBox");
+        _passthroughDtsHdCheckBox = this.FindControl<CheckBox>("PassthroughDtsHdCheckBox");
+        _passthroughTrueHdCheckBox = this.FindControl<CheckBox>("PassthroughTrueHdCheckBox");
+        _wasapiExclusiveToggle = this.FindControl<ToggleSwitch>("WasapiExclusiveToggle");
+        
+        _subtitleFontComboBox = this.FindControl<ComboBox>("SubtitleFontComboBox");
+        _subBorderSizeSlider = this.FindControl<Slider>("SubBorderSizeSlider");
+        _subBorderSizeValueText = this.FindControl<TextBlock>("SubBorderSizeValueText");
+        _subShadowOffsetSlider = this.FindControl<Slider>("SubShadowOffsetSlider");
+        _subShadowOffsetValueText = this.FindControl<TextBlock>("SubShadowOffsetValueText");
+        
+        _defaultWorkspaceTabComboBox = this.FindControl<ComboBox>("DefaultWorkspaceTabComboBox");
+        _disableOsdNotificationsToggle = this.FindControl<ToggleSwitch>("DisableOsdNotificationsToggle");
+        _disableSeekingPreviewsToggle = this.FindControl<ToggleSwitch>("DisableSeekingPreviewsToggle");
+        _tacticalDeckToggle = this.FindControl<ToggleSwitch>("TacticalDeckToggle");
+        _showSystemClockToggle = this.FindControl<ToggleSwitch>("ShowSystemClockToggle");
+        _clockFormatComboBox = this.FindControl<ComboBox>("ClockFormatComboBox");
+        
+        // Settings close button click
+        if (_settingsCloseButton != null)
+        {
+            _settingsCloseButton.Click += (s, e) => CloseSettings();
+        }
+
+        // Browse boot directory picker click
+        if (_browseBootDirButton != null)
+        {
+            _browseBootDirButton.Click += async (s, e) =>
             {
-                try
+                var topLevel = TopLevel.GetTopLevel(this);
+                if (topLevel != null)
                 {
-                    await Task.Delay(1500, token);
-                    
-                    if (!_isAnalyzeModeActive || _mpvHandle == IntPtr.Zero || !_isEngineInitialized)
-                        continue;
-
-                    long currentDropCount = GetMpvPropertyLong("vo-drop-frame-count");
-                    long droppedInWindow = currentDropCount - _lastDropFrameCount;
-                    _lastDropFrameCount = currentDropCount;
-
-                    if (droppedInWindow > 3)
+                    var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
                     {
-                        Log($"Dynamic Safety Valve: Dropped {droppedInWindow} frames in 1.5s window.");
-                        if (_isCinematicScaling)
+                        Title = "Select Default Boot Directory",
+                        AllowMultiple = false
+                    });
+                    if (folders != null && folders.Count > 0)
+                    {
+                        var path = folders[0].Path.LocalPath;
+                        if (!string.IsNullOrEmpty(path) && _defaultBootDirTextBox != null)
                         {
-                            Dispatcher.UIThread.Post(() =>
-                            {
-                                ApplyScalingConfig(false); // Downscale to Mitchell
-                                if (_dashboardChromaStatus != null)
-                                {
-                                    _dashboardChromaStatus.Text = "BALANCED (MITCHELL)";
-                                }
-                                TriggerOsdHUD("⚡", "PERFORMANCE STABILIZER ACTIVE: SCALING STEPPED DOWN TO PROTECT RENDERING FRAME RATE");
-                            });
-                        }
-                        else if (_systemTier == 1)
-                        {
-                            // Enforce Bilinear fallback if not already
-                            SetMpvPropertyString(_mpvHandle, "scale", "bilinear");
-                            SetMpvPropertyString(_mpvHandle, "cscale", "bilinear");
-                            Dispatcher.UIThread.Post(() =>
-                            {
-                                if (_dashboardChromaStatus != null)
-                                {
-                                    _dashboardChromaStatus.Text = "LOW-SPEC (BILINEAR)";
-                                }
-                                TriggerOsdHUD("⚡", "PERFORMANCE STABILIZER ACTIVE: SCALING STEPPED DOWN TO PROTECT RENDERING FRAME RATE");
-                            });
+                            _defaultBootDirTextBox.Text = path;
                         }
                     }
                 }
-                catch (TaskCanceledException) { break; }
-                catch (Exception ex)
-                {
-                    Log($"Safety Valve error: {ex.Message}");
-                }
-            }
-            Log("Dynamic Performance Safety Valve Loop disabled.");
-        }, token);
-    }
+            };
+        }
 
-    private void StopSafetyValveLoop()
-    {
-        _safetyValveCts?.Cancel();
-        _safetyValveCts = null;
+        // Wire up nav clicks and scroll-to mappings
+        var navButtons = new[] { _navGeneralButton, _navEngineButton, _navAudioButton, _navSubtitlesButton, _navUiButton };
+        var sections = new[] { "SectionGeneral", "SectionEngine", "SectionAudio", "SectionTypography", "SectionUi" };
+
+        for (int i = 0; i < navButtons.Length; i++)
+        {
+            var btn = navButtons[i];
+            if (btn == null) continue;
+            
+            string sectionName = sections[i];
+            btn.Click += (s, e) =>
+            {
+                foreach (var b in navButtons)
+                {
+                    if (b != null) ToggleClass(b, "active", b == btn);
+                }
+                
+                var targetSection = this.FindControl<Control>(sectionName);
+                if (targetSection != null)
+                {
+                    ScrollToSection(targetSection);
+                }
+            };
+        }
+
+        // Sliders updates
+        if (_subBorderSizeSlider != null)
+        {
+            _subBorderSizeSlider.ValueChanged += (s, e) =>
+            {
+                if (_subBorderSizeValueText != null)
+                {
+                    _subBorderSizeValueText.Text = $"{e.NewValue:F1} px";
+                }
+            };
+        }
+
+        if (_subShadowOffsetSlider != null)
+        {
+            _subShadowOffsetSlider.ValueChanged += (s, e) =>
+            {
+                if (_subShadowOffsetValueText != null)
+                {
+                    _subShadowOffsetValueText.Text = $"{e.NewValue:F1} px";
+                }
+            };
+        }
+
+        // Settings gear buttons in main views (TitleBar)
+        var titlebarSettings = this.FindControl<Button>("SettingsButton");
+        if (titlebarSettings != null)
+        {
+            titlebarSettings.Click += (s, e) => OpenSettings();
+        }
+
+        PopulateSubtitleFonts();
     }
 
     private void LogTelemetry(string message)
@@ -3708,92 +4436,7 @@ public partial class MainWindow : Window
     }
 }
 
-// --- Phase 2 DXGI COM Interop Definitions ---
-[ComImport]
-[Guid("7b7166ec-21c7-44ae-901a-31a3596a4a11")]
-[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-public interface IDXGIFactory
-{
-    [PreserveSig]
-    int SetPrivateData(ref Guid Name, uint DataSize, IntPtr pData);
-    [PreserveSig]
-    int SetPrivateDataInterface(ref Guid Name, IntPtr pUnknown);
-    [PreserveSig]
-    int GetPrivateData(ref Guid Name, ref uint pDataSize, IntPtr pData);
-    [PreserveSig]
-    int GetParent(ref Guid riid, out IntPtr ppParent);
-    [PreserveSig]
-    int EnumAdapters(uint Adapter, out IDXGIAdapter ppAdapter);
-}
 
-[ComImport]
-[Guid("240b0cf0-1592-4ebc-9a45-637b784f1578")]
-[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-public interface IDXGIAdapter
-{
-    [PreserveSig]
-    int SetPrivateData(ref Guid Name, uint DataSize, IntPtr pData);
-    [PreserveSig]
-    int SetPrivateDataInterface(ref Guid Name, IntPtr pUnknown);
-    [PreserveSig]
-    int GetPrivateData(ref Guid Name, ref uint pDataSize, IntPtr pData);
-    [PreserveSig]
-    int GetParent(ref Guid riid, out IntPtr ppParent);
-    [PreserveSig]
-    int EnumOutputs(uint Output, out IntPtr ppOutput);
-    [PreserveSig]
-    int GetDesc(out DXGI_ADAPTER_DESC pDesc);
-}
-
-[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-public struct DXGI_ADAPTER_DESC
-{
-    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
-    public string Description;
-    public uint VendorId;
-    public uint DeviceId;
-    public UIntPtr DedicatedVideoMemory;
-    public UIntPtr DedicatedSystemMemory;
-    public UIntPtr SharedSystemMemory;
-    public uint LuidLow;
-    public int LuidHigh;
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct RECT
-{
-    public int Left;
-    public int Top;
-    public int Right;
-    public int Bottom;
-}
-
-[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-public struct DXGI_OUTPUT_DESC1
-{
-    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
-    public string DeviceName;
-    public RECT DesktopCoordinates;
-    public bool AttachedToDesktop;
-    public int Rotation;
-    public IntPtr Monitor;
-    public uint BitsPerColor;
-    public int ColorSpace;
-    public float RedPrimaryX;
-    public float RedPrimaryY;
-    public float GreenPrimaryX;
-    public float GreenPrimaryY;
-    public float BluePrimaryX;
-    public float BluePrimaryY;
-    public float WhitePointX;
-    public float WhitePointY;
-    public float MinLuminance;
-    public float MaxLuminance;
-    public float MaxFullFrameLuminance;
-}
-
-[UnmanagedFunctionPointer(CallingConvention.StdCall)]
-public delegate int GetDesc1Delegate(IntPtr thisPtr, out DXGI_OUTPUT_DESC1 pDesc);
 
 // --- Phase 3 ViewModels ---
 public class MediaItemViewModel : System.ComponentModel.INotifyPropertyChanged
@@ -3867,6 +4510,20 @@ public class QueueItemViewModel : System.ComponentModel.INotifyPropertyChanged
         set { _durationText = value; OnPropertyChanged(nameof(DurationText)); }
     }
 
+    private string _sizeText = "";
+    public string SizeText
+    {
+        get => _sizeText;
+        set { _sizeText = value; OnPropertyChanged(nameof(SizeText)); }
+    }
+
+    private Avalonia.Media.Imaging.Bitmap? _thumbnail;
+    public Avalonia.Media.Imaging.Bitmap? Thumbnail
+    {
+        get => _thumbnail;
+        set { _thumbnail = value; OnPropertyChanged(nameof(Thumbnail)); }
+    }
+
     private bool _isPlaying;
     public bool IsPlaying
     {
@@ -3885,4 +4542,31 @@ public class QueueItemViewModel : System.ComponentModel.INotifyPropertyChanged
 
     public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
     protected void OnPropertyChanged(string name) => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
+}
+
+public class UserSettings
+{
+    public bool IsTacticalDeckMode { get; set; } = false;
+    public bool ShowSystemClock { get; set; } = false;
+    public bool Use24HourClock { get; set; } = true;
+    public string DefaultBootDirectoryPath { get; set; } = "";
+    public bool RememberLastDirectoryPath { get; set; } = true;
+    public string LastDirectoryPath { get; set; } = "";
+    public bool AllowMultipleInstances { get; set; } = false;
+    public bool DisableHdrPeak { get; set; } = false;
+    public bool ForceSoftwareDecoding { get; set; } = false;
+    public string DefaultAudioLanguage { get; set; } = "eng";
+    public bool PassthroughAc3 { get; set; } = false;
+    public bool PassthroughDts { get; set; } = false;
+    public bool PassthroughDtsHd { get; set; } = false;
+    public bool PassthroughTrueHd { get; set; } = false;
+    public bool WasapiExclusive { get; set; } = false;
+    public string SubtitleFontFamily { get; set; } = "";
+    public double SubtitleBorderSize { get; set; } = 3.0;
+    public double SubtitleShadowOffset { get; set; } = 1.0;
+    public string DefaultWorkspaceTab { get; set; } = "Queue";
+    public bool DisableOsdNotifications { get; set; } = false;
+    public bool DisableSeekingPreviews { get; set; } = false;
+    public int DirectorySortMode { get; set; } = 0;
+    public string HdrDisplayProfileOverride { get; set; } = "400 Nit OLED";
 }

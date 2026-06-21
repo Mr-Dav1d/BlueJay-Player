@@ -15,16 +15,25 @@
     <Border Name="RootBorder" CornerRadius="8" ClipToBounds="True" Background="#0C0C12" BorderBrush="#1F222F" BorderThickness="1" DragDrop.AllowDrop="True">
         <Grid Name="MainRootGrid" RowDefinitions="32,*" ColumnDefinitions="*,Auto" Background="Transparent" DragDrop.AllowDrop="True">
 
-            <Border Grid.Row="0" Grid.ColumnSpan="2" Background="#09090D" BorderBrush="#14141A" BorderThickness="0,0,0,0.5">
-                <Grid Name="CustomTitleBar" ColumnDefinitions="*,Auto" Background="Transparent">
+            <Border Grid.Row="0" Grid.ColumnSpan="2" Height="32" Background="#09090D" BorderBrush="#14141A" BorderThickness="0,0,0,0.5">
+                <Grid Name="CustomTitleBar" Height="32" ColumnDefinitions="*,Auto" Background="Transparent">
                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0" IsHitTestVisible="False">
                         <Ellipse Width="5" Height="5" Fill="#2B88FF" Opacity="0.8" Margin="0,0,8,0" VerticalAlignment="Center"/>
                         <TextBlock Text="B L U E J A Y" FontFamily="Consolas" FontSize="10" Foreground="#5C647C" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,0,6,0">
-                        <Button Name="MinimizeButton" Content="—" Width="40" Height="24" Background="Transparent" BorderThickness="0" Foreground="#5C647C" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" FontSize="10" Focusable="False"/>
-                        <Button Name="MaximizeButton" Content="▢" Width="40" Height="24" Background="Transparent" BorderThickness="0" Foreground="#5C647C" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" FontSize="10" Focusable="False"/>
-                        <Button Name="CloseButton" Content="✕" Width="40" Height="24" Background="Transparent" BorderThickness="0" Foreground="#5C647C" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" FontSize="11" Focusable="False"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Stretch" Margin="0">
+                        <Button Name="SettingsButton" Classes="titlebar-btn" ToolTip.Tip="Settings" Width="46" Focusable="False">
+                            <PathIcon Data="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" Width="11" Height="11"/>
+                        </Button>
+                        <Button Name="MinimizeButton" Classes="titlebar-btn" Width="46" Focusable="False">
+                            <PathIcon Data="M19 13H5v-2h14v2z" Width="10" Height="10"/>
+                        </Button>
+                        <Button Name="MaximizeButton" Classes="titlebar-btn" Width="46" Focusable="False">
+                            <PathIcon Data="M4 4h16v16H4V4zm2 2v12h12V6H6z" Width="10" Height="10"/>
+                        </Button>
+                        <Button Name="CloseButton" Classes="titlebar-btn close" Width="46" Focusable="False">
+                            <PathIcon Data="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z" Width="10" Height="10"/>
+                        </Button>
                     </StackPanel>
                 </Grid>
             </Border>
@@ -165,14 +174,23 @@
                             </Border.Transitions>
 
                             <Grid RowDefinitions="*">
-                                <Grid Grid.Row="0" Name="SingleLineLayout" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" VerticalAlignment="Center">
+                                <Grid Grid.Row="0" Name="SingleLineLayout" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" VerticalAlignment="Center">
                                     <Button Grid.Column="0" Name="SinglePlayPauseButton" Classes="transport-btn" ToolTip.Tip="Play / Pause">
                                         <PathIcon Name="SinglePlayPauseIcon" Data="M8 5v14l11-7z" Width="12" Height="12"/>
                                     </Button>
                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="8,0,12,0" Spacing="4" VerticalAlignment="Center">
-                                        <TextBlock Name="SingleCurrentTimeText" Text="00:00:00" FontFamily="Consolas" FontSize="11" Foreground="#C5CEE3"/>
+                                        <Panel VerticalAlignment="Center">
+                                            <TextBlock Name="SingleCurrentTimeText" Text="00:00:00" FontFamily="Consolas" FontSize="11" Foreground="#C5CEE3" Cursor="Hand" PointerPressed="OnCurrentTimeTextPointerPressed"/>
+                                            <TextBox Name="SingleCurrentTimeInput" Text="00:00:00" FontFamily="Consolas" FontSize="11" Foreground="#C5CEE3"
+                                                     Background="#0A0A10" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="3" Padding="4,1" MinHeight="0" Height="20" Width="64"
+                                                     IsVisible="False" KeyDown="OnCurrentTimeInputKeyDown" LostFocus="OnCurrentTimeInputLostFocus"
+                                                     CaretBrush="#5B8DEF" SelectionBrush="#5B8DEF" SelectionForegroundBrush="#FFFFFF"
+                                                     HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+                                        </Panel>
                                         <TextBlock Text="/" FontFamily="Consolas" FontSize="11" Foreground="#5C647C"/>
                                         <TextBlock Name="SingleTotalDurationText" Text="00:00:00" FontFamily="Consolas" FontSize="11" Foreground="#5C647C"/>
+                                        <TextBlock Name="SingleSystemClockSeparator" Text="•" FontFamily="Consolas" FontSize="11" Foreground="#1F222F" IsVisible="False"/>
+                                        <TextBlock Name="SingleSystemClockText" Text="" FontFamily="Consolas" FontSize="11" Foreground="#5C647C" IsVisible="False"/>
                                     </StackPanel>
                                     
                                     <Slider Grid.Column="2" Name="SinglePlaybackSlider" Classes="playback" Focusable="False"/>
@@ -182,40 +200,35 @@
                                     </Button>
                                     <Slider Grid.Column="4" Name="SingleVolumeSlider" Classes="volume-mini" Width="56" Margin="4,0,12,0" VerticalAlignment="Center" Focusable="False"/>
                                     
-                                    <Button Grid.Column="5" Name="SingleLoopButton" Classes="transport-btn" ToolTip.Tip="Repeat: Off">
+                                    <!-- Media Group -->
+                                    <Button Grid.Column="5" Name="SingleAudioButton" Classes="transport-btn" ToolTip.Tip="Audio Tracks">
+                                        <PathIcon Data="M12 2c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7c0-4.97-4.03-9-9-9z" Width="12" Height="12"/>
+                                        <Button.Flyout>
+                                            <MenuFlyout/>
+                                        </Button.Flyout>
+                                    </Button>
+                                    <Button Grid.Column="6" Name="SingleSubtitleButton" Classes="transport-btn" ToolTip.Tip="Subtitles">
+                                        <PathIcon Data="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2z" Width="12" Height="12"/>
+                                        <Button.Flyout>
+                                            <MenuFlyout/>
+                                        </Button.Flyout>
+                                    </Button>
+                                    
+                                    <!-- Environment Group -->
+                                    <Button Grid.Column="7" Name="SingleLoopButton" Classes="transport-btn" ToolTip.Tip="Repeat: Off">
                                         <Grid>
                                             <PathIcon Name="SingleLoopIcon" Data="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" Width="12" Height="12"/>
                                             <TextBlock Name="SingleLoopBadge" Text="1" FontSize="7" FontWeight="Bold" Foreground="#66AFFF" IsVisible="False"
                                                        HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-4,-3"/>
                                         </Grid>
                                     </Button>
-                                    <Button Grid.Column="6" Name="SingleAudioButton" Classes="transport-btn" ToolTip.Tip="Audio Tracks">
-                                        <PathIcon Data="M12 2c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7c0-4.97-4.03-9-9-9z" Width="12" Height="12"/>
-                                        <Button.Flyout>
-                                            <MenuFlyout/>
-                                        </Button.Flyout>
+                                    <Button Grid.Column="8" Name="SingleFullscreenButton" Classes="transport-btn" ToolTip.Tip="Toggle Fullscreen (F)">
+                                        <PathIcon Name="SingleFullscreenIcon" Data="M5 5h5v2H7v3H5V5zm14 0h-5v2h3v3h2V5zM5 19h5v-2H7v-3H5v5zm14 0h-5v-2h3v-3h2v5z" Width="12" Height="12"/>
                                     </Button>
-                                    <Button Grid.Column="7" Name="SingleSubtitleButton" Classes="transport-btn" ToolTip.Tip="Subtitles">
-                                        <PathIcon Data="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2z" Width="12" Height="12"/>
-                                        <Button.Flyout>
-                                            <MenuFlyout/>
-                                        </Button.Flyout>
-                                    </Button>
-                                    <Button Grid.Column="8" Name="SingleModeSwitchButton" Classes="transport-btn" ToolTip.Tip="Tactical Deck View Mode">
-                                        <PathIcon Data="M4 4h16v4H4V4zm0 6h16v10H4V10z" Width="12" Height="12"/>
-                                    </Button>
-                                    <Button Grid.Column="9" Name="SingleFullscreenButton" Classes="transport-btn" ToolTip.Tip="Toggle Fullscreen (F)">
-                                        <PathIcon Data="M5 5h5v2H7v3H5V5zm14 0h-5v2h3v3h2V5zM5 19h5v-2H7v-3H5v5zm14 0h-5v-2h3v-3h2v5z" Width="12" Height="12"/>
-                                    </Button>
-                                    <Button Grid.Column="10" Name="SingleHdrButton" Classes="transport-btn" ToolTip.Tip="Toggle HDR Pipeline">
-                                        <StackPanel Orientation="Horizontal" Spacing="3">
-                                            <PathIcon Name="SingleHdrIcon" Data="M12 22c5.52 0 10-4.48 10-10S17.52 2 12 2 2 6.48 2 12s4.48 10 10 10zm0-18c4.41 0 8 3.59 8 8s-3.59 8-8 8-8-3.59-8-8 3.59-8 8-8zm0 3c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5z" Width="12" Height="12"/>
-                                            <Border Name="SingleHdrBadge" Background="#1B243B" BorderBrush="#2B88FF" BorderThickness="0.5" CornerRadius="3" Padding="2,0" IsVisible="False" VerticalAlignment="Center">
-                                                <TextBlock Text="HDR" FontSize="8" FontWeight="Bold" Foreground="#66AFFF" VerticalAlignment="Center"/>
-                                            </Border>
-                                        </StackPanel>
-                                    </Button>
-                                    <Button Grid.Column="11" Name="SingleSidePanelButton" Classes="transport-btn" ToolTip.Tip="Toggle Side Panel">
+                                    
+                                    <!-- Panel Group -->
+                                    <Border Grid.Column="9" Width="1" Height="12" Background="#1F222F" Margin="6,0,6,0" VerticalAlignment="Center"/>
+                                    <Button Grid.Column="10" Name="SingleSidePanelButton" Classes="transport-btn" ToolTip.Tip="Toggle Side Panel">
                                         <PathIcon Data="M3 4h18v2H3V4zm0 5h18v2H3V9zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" Width="12" Height="12"/>
                                     </Button>
                                 </Grid>
@@ -243,19 +256,22 @@
                                         </StackPanel>
 
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
-                                            <TextBlock Name="DeckCurrentTimeText" Text="00:00:00" FontFamily="Consolas" FontSize="11" FontWeight="Medium" Foreground="#C5CEE3" VerticalAlignment="Center"/>
+                                            <Panel VerticalAlignment="Center">
+                                                <TextBlock Name="DeckCurrentTimeText" Text="00:00:00" FontFamily="Consolas" FontSize="11" FontWeight="Medium" Foreground="#C5CEE3" VerticalAlignment="Center" Cursor="Hand" PointerPressed="OnCurrentTimeTextPointerPressed"/>
+                                                <TextBox Name="DeckCurrentTimeInput" Text="00:00:00" FontFamily="Consolas" FontSize="11" FontWeight="Medium" Foreground="#C5CEE3"
+                                                         Background="#0A0A10" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="3" Padding="4,1" MinHeight="0" Height="20" Width="64"
+                                                         IsVisible="False" KeyDown="OnCurrentTimeInputKeyDown" LostFocus="OnCurrentTimeInputLostFocus"
+                                                         CaretBrush="#5B8DEF" SelectionBrush="#5B8DEF" SelectionForegroundBrush="#FFFFFF"
+                                                         HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+                                            </Panel>
                                             <TextBlock Text="|" FontFamily="Consolas" FontSize="10" Foreground="#1F222F" VerticalAlignment="Center"/>
                                             <TextBlock Name="DeckTotalDurationText" Text="00:00:00" FontFamily="Consolas" FontSize="11" FontWeight="Medium" Foreground="#5C647C" VerticalAlignment="Center"/>
+                                            <TextBlock Name="DeckSystemClockSeparator" Text="•" FontFamily="Consolas" FontSize="10" Foreground="#1F222F" VerticalAlignment="Center" IsVisible="False"/>
+                                            <TextBlock Name="DeckSystemClockText" Text="" FontFamily="Consolas" FontSize="11" FontWeight="Medium" Foreground="#5C647C" VerticalAlignment="Center" IsVisible="False"/>
                                         </StackPanel>
 
                                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
-                                            <Button Name="DeckLoopButton" Classes="transport-btn" ToolTip.Tip="Repeat: Off">
-                                                <Grid>
-                                                    <PathIcon Name="DeckLoopIcon" Data="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" Width="12" Height="12"/>
-                                                    <TextBlock Name="DeckLoopBadge" Text="1" FontSize="7" FontWeight="Bold" Foreground="#66AFFF" IsVisible="False"
-                                                               HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-4,-3"/>
-                                                </Grid>
-                                            </Button>
+                                            <!-- Media Group -->
                                             <Button Name="DeckAudioButton" Classes="transport-btn" ToolTip.Tip="Audio Tracks">
                                                 <PathIcon Data="M12 2c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7c0-4.97-4.03-9-9-9z" Width="12" Height="12"/>
                                                 <Button.Flyout>
@@ -268,20 +284,21 @@
                                                     <MenuFlyout/>
                                                 </Button.Flyout>
                                             </Button>
-                                            <Button Name="DeckModeSwitchButton" Classes="transport-btn" ToolTip.Tip="Stealth Rail View Mode">
-                                                <PathIcon Data="M19 12H5v-2h14v2z" Width="12" Height="12"/>
+                                            
+                                            <!-- Environment Group -->
+                                            <Button Name="DeckLoopButton" Classes="transport-btn" ToolTip.Tip="Repeat: Off">
+                                                <Grid>
+                                                    <PathIcon Name="DeckLoopIcon" Data="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" Width="12" Height="12"/>
+                                                    <TextBlock Name="DeckLoopBadge" Text="1" FontSize="7" FontWeight="Bold" Foreground="#66AFFF" IsVisible="False"
+                                                               HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-4,-3"/>
+                                                </Grid>
                                             </Button>
                                             <Button Name="DeckFullscreenButton" Classes="transport-btn" ToolTip.Tip="Toggle Fullscreen (F)">
-                                                <PathIcon Data="M5 5h5v2H7v3H5V5zm14 0h-5v2h3v3h2V5zM5 19h5v-2H7v-3H5v5zm14 0h-5v-2h3v-3h2v5z" Width="12" Height="12"/>
+                                                <PathIcon Name="DeckFullscreenIcon" Data="M5 5h5v2H7v3H5V5zm14 0h-5v2h3v3h2V5zM5 19h5v-2H7v-3H5v5zm14 0h-5v-2h3v-3h2v5z" Width="12" Height="12"/>
                                             </Button>
-                                            <Button Name="DeckHdrButton" Classes="transport-btn" ToolTip.Tip="Toggle HDR Pipeline">
-                                                <StackPanel Orientation="Horizontal" Spacing="3">
-                                                    <PathIcon Name="DeckHdrIcon" Data="M12 22c5.52 0 10-4.48 10-10S17.52 2 12 2 2 6.48 2 12s4.48 10 10 10zm0-18c4.41 0 8 3.59 8 8s-3.59 8-8 8-8-3.59-8-8 3.59-8 8-8zm0 3c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5z" Width="12" Height="12"/>
-                                                    <Border Name="DeckHdrBadge" Background="#1B243B" BorderBrush="#2B88FF" BorderThickness="0.5" CornerRadius="3" Padding="2,0" IsVisible="False" VerticalAlignment="Center">
-                                                        <TextBlock Text="HDR" FontSize="8" FontWeight="Bold" Foreground="#66AFFF" VerticalAlignment="Center"/>
-                                                    </Border>
-                                                </StackPanel>
-                                            </Button>
+                                            
+                                            <!-- Panel Group -->
+                                            <Border Width="1" Height="12" Background="#1F222F" Margin="6,0,6,0" VerticalAlignment="Center"/>
                                             <Button Name="DeckSidePanelButton" Classes="transport-btn" ToolTip.Tip="Toggle Side Panel">
                                                 <PathIcon Data="M3 4h18v2H3V4zm0 5h18v2H3V9zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" Width="12" Height="12"/>
                                             </Button>
@@ -341,6 +358,31 @@
                                 </Button>
                             </Grid>
                             <ListBox Grid.Row="1" Name="QueueListBox" Background="Transparent" BorderThickness="0" Margin="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListBox.Styles>
+                                    <Style Selector="ListBoxItem">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="Padding" Value="0"/>
+                                    </Style>
+                                    <Style Selector="ListBoxItem StackPanel.row-actions">
+                                        <Setter Property="Opacity" Value="0.0"/>
+                                        <Setter Property="Transitions">
+                                            <Transitions>
+                                                <DoubleTransition Property="Opacity" Duration="0:0:0.2"/>
+                                            </Transitions>
+                                        </Setter>
+                                    </Style>
+                                    <Style Selector="ListBoxItem:pointerover StackPanel.row-actions">
+                                        <Setter Property="Opacity" Value="1.0"/>
+                                    </Style>
+                                    <Style Selector="ListBoxItem Border.item-row-border">
+                                        <Setter Property="BorderThickness" Value="0,0,0,0"/>
+                                        <Setter Property="BorderBrush" Value="Transparent"/>
+                                    </Style>
+                                    <Style Selector="ListBoxItem Border.item-row-border.playing">
+                                        <Setter Property="BorderThickness" Value="3,0,0,0"/>
+                                        <Setter Property="BorderBrush" Value="#66AFFF"/>
+                                    </Style>
+                                </ListBox.Styles>
                                 <ListBox.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <VirtualizingStackPanel/>
@@ -348,20 +390,40 @@
                                 </ListBox.ItemsPanel>
                                 <ListBox.ItemTemplate>
                                     <DataTemplate x:DataType="views:QueueItemViewModel">
-                                        <Grid ColumnDefinitions="*,Auto" Height="40" Margin="0,1">
-                                            <StackPanel VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Name}" Foreground="{Binding ForegroundBrush}" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                                                <TextBlock Text="{Binding FullPath}" Foreground="{Binding PathForegroundBrush}" FontSize="9" FontFamily="Consolas" TextTrimming="CharacterEllipsis"/>
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding DurationText}" Foreground="#5C647C" FontSize="10" FontFamily="Consolas" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                                <StackPanel Classes="row-actions" VerticalAlignment="Center">
+                                        <Border Classes.playing="{Binding IsPlaying}" Classes="item-row-border" Padding="6,0,0,0" Background="Transparent">
+                                            <Grid ColumnDefinitions="Auto,*,Auto" Height="50" Margin="0,2">
+                                                <!-- Thumbnail -->
+                                                <Border Grid.Column="0" Width="80" Height="45" Background="#09090D" CornerRadius="4" BorderBrush="#1F222F" BorderThickness="0.5" ClipToBounds="True">
+                                                    <Panel>
+                                                        <!-- Pulsing placeholder when no thumbnail -->
+                                                        <Border Background="#14141A" Classes="pulse" IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNull}}"/>
+                                                        <!-- Loaded thumbnail image -->
+                                                        <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                                        <!-- Now-playing overlay icon -->
+                                                        <Border Background="#B00C0C12" IsVisible="{Binding IsPlaying}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                                                            <PathIcon Data="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" Width="14" Height="14" Foreground="#2B88FF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        </Border>
+                                                    </Panel>
+                                                </Border>
+
+                                                <!-- Metadata -->
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0,0,0">
+                                                    <TextBlock Text="{Binding Name}" Foreground="{Binding ForegroundBrush}" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                                        <TextBlock Text="{Binding SizeText}" Foreground="{Binding PathForegroundBrush}" FontSize="10" FontFamily="Consolas"/>
+                                                        <TextBlock Text="•" Foreground="#1F222F" FontSize="10"/>
+                                                        <TextBlock Text="{Binding DurationText}" Foreground="{Binding PathForegroundBrush}" FontSize="10" FontFamily="Consolas"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+
+                                                <!-- Row Hover Action Buttons -->
+                                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Classes="row-actions">
                                                     <Button Name="RemoveQueueButton" Classes="action-btn" ToolTip.Tip="Remove from Queue" CommandParameter="{Binding FullPath}">
                                                         <PathIcon Data="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" Width="10" Height="10"/>
                                                     </Button>
                                                 </StackPanel>
-                                            </StackPanel>
-                                        </Grid>
+                                            </Grid>
+                                        </Border>
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>
@@ -375,12 +437,25 @@
 
                         <!-- Directory Panel -->
                         <Grid Name="DirectoryPanel" RowDefinitions="Auto,*,Auto" IsVisible="False">
-                            <!-- Breadcrumb & Up Button Header -->
-                            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
-                                <TextBox Grid.Column="0" Name="BreadcrumbText" Text="Current Folder" Foreground="#8A92AD" FontSize="10" FontFamily="Consolas" VerticalAlignment="Center"
+                            <!-- Breadcrumb & Up Button Header with Sort Criteria -->
+                            <Grid Grid.Row="0" RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+                                <TextBox Grid.Row="0" Grid.Column="0" Name="BreadcrumbText" Text="Current Folder" Foreground="#8A92AD" FontSize="10" FontFamily="Consolas" VerticalAlignment="Center"
                                          Background="#0A0A10" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="4" Padding="6,3"
                                          CaretBrush="#5B8DEF" SelectionBrush="#5B8DEF" SelectionForegroundBrush="#FFFFFF"/>
-                                <Button Grid.Column="1" Name="UpDirectoryButton" Classes="page-btn" Content="⬆ Up" FontSize="10"/>
+                                <Button Grid.Row="0" Grid.Column="1" Name="UpDirectoryButton" Classes="page-btn" Content="⬆ Up" FontSize="10"/>
+                                
+                                <Grid Grid.Row="1" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto" Margin="0,6,0,0">
+                                    <TextBlock Grid.Column="0" Text="SORT BY" Foreground="#5C647C" FontSize="9" FontWeight="Bold" VerticalAlignment="Center" LetterSpacing="0.8"/>
+                                    <ComboBox Grid.Column="1" Name="DirectorySortComboBox" SelectedIndex="0" FontSize="10" Height="26" Padding="8,4" Width="180"
+                                              Background="#0A0A10" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="4" Foreground="#C5CEE3" HorizontalAlignment="Right">
+                                        <ComboBoxItem Content="Name (Ascending)"/>
+                                        <ComboBoxItem Content="Name (Descending)"/>
+                                        <ComboBoxItem Content="Date Modified (Newest)"/>
+                                        <ComboBoxItem Content="Date Modified (Oldest)"/>
+                                        <ComboBoxItem Content="Size (Largest)"/>
+                                        <ComboBoxItem Content="Size (Smallest)"/>
+                                    </ComboBox>
+                                </Grid>
                             </Grid>
 
                             <!-- Directory Files List -->
@@ -410,7 +485,11 @@
 
                                             <!-- Metadata details -->
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0,0,0">
-                                                <TextBlock Text="{Binding Name}" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Disabled"
+                                                              PointerEntered="OnDirectoryItemPointerEntered" PointerExited="OnDirectoryItemPointerExited"
+                                                              DetachedFromVisualTree="OnDirectoryItemDetached">
+                                                    <TextBlock Text="{Binding Name}" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"/>
+                                                </ScrollViewer>
                                                 <!-- Metadata size / duration for files, or <Folder> for folders -->
                                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                                     <TextBlock Text="Folder" Foreground="#5C647C" FontSize="10" FontFamily="Consolas" IsVisible="{Binding IsDirectory}"/>
@@ -437,9 +516,13 @@
                             <!-- Bottom Pagination Control Bar -->
                             <Border Grid.Row="2" Background="Transparent" BorderBrush="#14141A" BorderThickness="0,1,0,0" Padding="0,12,0,0" Margin="0,4,0,0">
                                 <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
-                                    <Button Grid.Column="0" Name="PrevPageButton" Classes="page-btn" Content="◀ Prev" FontSize="10"/>
+                                    <Button Grid.Column="0" Name="PrevPageButton" Classes="action-btn" ToolTip.Tip="Previous Page" Width="28" Height="28">
+                                        <PathIcon Data="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" Width="10" Height="10"/>
+                                    </Button>
                                     <TextBlock Grid.Column="1" Name="PageNumberText" Text="Page 1 / 1" FontFamily="Consolas" FontSize="10" FontWeight="SemiBold" Foreground="#C5CEE3" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    <Button Grid.Column="2" Name="NextPageButton" Classes="page-btn" Content="Next ▶" FontSize="10"/>
+                                    <Button Grid.Column="2" Name="NextPageButton" Classes="action-btn" ToolTip.Tip="Next Page" Width="28" Height="28">
+                                        <PathIcon Data="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" Width="10" Height="10"/>
+                                    </Button>
                                 </Grid>
                             </Border>
                         </Grid>
@@ -449,161 +532,434 @@
                             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                                 <StackPanel Spacing="16" Margin="4,0,4,12">
                                     <TextBlock Text="VIDEO ENGINE MATRIX" Foreground="#5C647C" FontSize="10" FontWeight="Bold" LetterSpacing="0.8"/>
-                                    
-                                    <!-- Analyze Mode Switch -->
-                                    <Border Background="#07070A" CornerRadius="6" BorderBrush="#1F222F" BorderThickness="1" Padding="2" Height="32">
-                                        <Grid ColumnDefinitions="*,*">
-                                            <Border Name="ManualModeIndicator" Grid.Column="0" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="True"/>
-                                            <Border Name="AnalyzeModeIndicator" Grid.Column="1" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="False"/>
-                                            
-                                            <Button Grid.Column="0" Name="ManualModeButton" Classes="tab-btn active" Content="MANUAL CONFIG"/>
-                                            <Button Grid.Column="1" Name="AnalyzeModeButton" Classes="tab-btn" Content="SMART ANALYZE"/>
+
+                                    <!-- Hardware Environment Profile Group -->
+                                    <StackPanel Spacing="4">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock Text="HARDWARE ENVIRONMENT PROFILE" Foreground="#8A92AD" FontSize="10" FontWeight="SemiBold"/>
+                                            <TextBlock Grid.Column="1" Name="EnvProfileSubText" Text="Standard Balance" Foreground="#5C647C" FontSize="9" FontFamily="Consolas" VerticalAlignment="Center"/>
                                         </Grid>
-                                    </Border>
-                                     <!-- Smart Analyze Dashboard Panel (visible only when SMART ANALYZE MODE is active) -->
-                                     <Border Name="SmartAnalyzeDashboard" Background="#07070A" CornerRadius="8" BorderBrush="#1F222F" BorderThickness="1" Padding="12" IsVisible="False">
-                                         <StackPanel Spacing="14">
-                                             <!-- Section A: Display Identity Block -->
-                                             <StackPanel Spacing="4">
-                                                 <TextBlock Text="🖥️ ACTIVE DISPLAY HARDWARE" Foreground="#5C647C" FontSize="10" FontWeight="Bold" LetterSpacing="0.8"/>
-                                                 <Border Background="#0C0C12" CornerRadius="6" BorderBrush="#1F222F" BorderThickness="1" Padding="10">
-                                                     <StackPanel Spacing="3">
-                                                         <TextBlock Name="DashboardDisplayIdentity" Text="Detecting Display..." Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                                                         <TextBlock Name="DashboardDisplayLuminance" Text="Peak Target: -- Nits" Foreground="#8A92AD" FontSize="10" FontFamily="Consolas"/>
-                                                     </StackPanel>
-                                                 </Border>
-                                             </StackPanel>
+                                        <Border Background="#07070A" CornerRadius="6" BorderBrush="#1F222F" BorderThickness="1" Padding="2" Height="32">
+                                            <Grid ColumnDefinitions="*,*,*">
+                                                <Border Name="EnvEcoIndicator" Grid.Column="0" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="False"/>
+                                                <Border Name="EnvDesktopIndicator" Grid.Column="1" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="True"/>
+                                                <Border Name="EnvEnthusiastIndicator" Grid.Column="2" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="False"/>
+                                                
+                                                <Button Grid.Column="0" Name="EnvEcoButton" Classes="tab-btn" Content="ECO / BATTERY"/>
+                                                <Button Grid.Column="1" Name="EnvDesktopButton" Classes="tab-btn active" Content="DESKTOP STANDARD"/>
+                                                <Button Grid.Column="2" Name="EnvEnthusiastButton" Classes="tab-btn" Content="ENTHUSIAST ULTRA"/>
+                                            </Grid>
+                                        </Border>
+                                    </StackPanel>
 
-                                             <!-- Section B: Active Calibration Metrics -->
-                                             <StackPanel Spacing="6">
-                                                 <TextBlock Text="🚀 CALIBRATION METRICS" Foreground="#5C647C" FontSize="10" FontWeight="Bold" LetterSpacing="0.8"/>
-                                                 <StackPanel Spacing="4">
-                                                     <!-- HDR Row -->
-                                                     <Grid ColumnDefinitions="*,Auto" Height="26" Margin="0,1">
-                                                         <TextBlock Text="HDR Pipeline:" Foreground="#8A92AD" FontSize="10" VerticalAlignment="Center"/>
-                                                         <Border Grid.Column="1" Background="#141E30" CornerRadius="4" BorderBrush="#2B88FF" BorderThickness="0.5" Padding="6,2">
-                                                             <TextBlock Name="DashboardHdrStatus" Text="INACTIVE" Foreground="#66AFFF" FontSize="9" FontFamily="Consolas" FontWeight="Bold" VerticalAlignment="Center"/>
-                                                         </Border>
-                                                     </Grid>
-                                                     <!-- Debanding Row -->
-                                                     <Grid ColumnDefinitions="*,Auto" Height="26" Margin="0,1">
-                                                         <TextBlock Text="Deband Filter:" Foreground="#8A92AD" FontSize="10" VerticalAlignment="Center"/>
-                                                         <Border Grid.Column="1" Background="#141E30" CornerRadius="4" BorderBrush="#2B88FF" BorderThickness="0.5" Padding="6,2">
-                                                             <TextBlock Name="DashboardDebandStatus" Text="OFF" Foreground="#66AFFF" FontSize="9" FontFamily="Consolas" FontWeight="Bold" VerticalAlignment="Center"/>
-                                                         </Border>
-                                                     </Grid>
-                                                     <!-- Upscaling Row -->
-                                                     <Grid ColumnDefinitions="*,Auto" Height="26" Margin="0,1">
-                                                         <TextBlock Text="Chroma Upscaler:" Foreground="#8A92AD" FontSize="10" VerticalAlignment="Center"/>
-                                                         <Border Grid.Column="1" Background="#141E30" CornerRadius="4" BorderBrush="#2B88FF" BorderThickness="0.5" Padding="6,2">
-                                                             <TextBlock Name="DashboardChromaStatus" Text="PERFORMANCE" Foreground="#66AFFF" FontSize="9" FontFamily="Consolas" FontWeight="Bold" VerticalAlignment="Center"/>
-                                                         </Border>
-                                                     </Grid>
-                                                 </StackPanel>
-                                             </StackPanel>
+                                    <!-- Mitigation Telemetry Badges -->
+                                    <WrapPanel Name="MitigationTelemetryPanel" Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,4,0,8">
+                                        <Border Name="AutoDebandBadge" IsVisible="False" Margin="0,0,8,0" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" Padding="6,3">
+                                            <TextBlock Text="⚡ AUTO-DEBAND ENGAGED" Foreground="#66AFFF" FontSize="9" FontWeight="SemiBold" Opacity="0.9"/>
+                                        </Border>
+                                        <Border Name="DeinterlaceBadge" IsVisible="False" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" Padding="6,3">
+                                            <TextBlock Text="⚡ DEINTERLACING ACTIVE" Foreground="#66AFFF" FontSize="9" FontWeight="SemiBold" Opacity="0.9"/>
+                                        </Border>
+                                    </WrapPanel>
 
-                                             <!-- Section C: Ambient Advisor Frame -->
-                                             <StackPanel Spacing="4">
-                                                 <TextBlock Text="💡 HARDWARE OPTIMIZATION ADVISOR" Foreground="#5C647C" FontSize="10" FontWeight="Bold" LetterSpacing="0.8"/>
-                                                 <Border Background="#0C0C12" CornerRadius="6" BorderBrush="#1F222F" BorderThickness="1" Padding="10">
-                                                     <Grid ColumnDefinitions="Auto,*">
-                                                         <TextBlock Text="ℹ️" Foreground="#2B88FF" FontSize="12" Margin="0,0,8,0" VerticalAlignment="Top"/>
-                                                         <TextBlock Grid.Column="1" Name="DashboardAdvisorText" Text="Calibrating display parameters..." Foreground="#8A92AD" FontSize="10" FontStyle="Italic" TextWrapping="Wrap" VerticalAlignment="Center"/>
-                                                     </Grid>
-                                                 </Border>
-                                             </StackPanel>
-                                         </StackPanel>
-                                     </Border>
-
-                                    <!-- Manual Controls Group (locks and fades when Analyze Mode is active) -->
-                                    <StackPanel Name="ManualControlsContainer" Spacing="16">
-                                        <!-- HDR Pipeline Group -->
-                                        <StackPanel Spacing="6">
-                                            <TextBlock Text="HDR PASS-THROUGH" Foreground="#8A92AD" FontSize="10" FontWeight="SemiBold"/>
+                                    <!-- Manual Controls Group -->
+                                    <StackPanel Spacing="16">
+                                        <!-- Rendering Profile Group -->
+                                        <StackPanel Spacing="4">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <TextBlock Text="RENDERING PROFILE" Foreground="#8A92AD" FontSize="10" FontWeight="SemiBold"/>
+                                                <TextBlock Grid.Column="1" Name="RenderingProfileSubText" Text="[d3d11 // srgb]" Foreground="#5C647C" FontSize="9" FontFamily="Consolas" VerticalAlignment="Center"/>
+                                            </Grid>
                                             <Border Background="#07070A" CornerRadius="6" BorderBrush="#1F222F" BorderThickness="1" Padding="2" Height="32">
                                                 <Grid ColumnDefinitions="*,*">
                                                     <Border Name="HdrSdrIndicator" Grid.Column="0" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="True"/>
                                                     <Border Name="HdrActiveIndicator" Grid.Column="1" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="False"/>
                                                     
-                                                    <Button Grid.Column="0" Name="HdrSdrButton" Classes="tab-btn active" Content="SDR"/>
-                                                    <Button Grid.Column="1" Name="HdrActiveButton" Classes="tab-btn" Content="PQ 10-BIT"/>
+                                                    <Button Grid.Column="0" Name="HdrSdrButton" Classes="tab-btn active" Content="STANDARD (SDR)"/>
+                                                    <Button Grid.Column="1" Name="HdrActiveButton" Classes="tab-btn" Content="CINEMATIC (HDR)"/>
                                                 </Grid>
                                             </Border>
                                         </StackPanel>
 
-                                        <!-- Debanding Filter Group -->
-                                        <StackPanel Spacing="6">
-                                            <TextBlock Text="DEBANDING FILTER" Foreground="#8A92AD" FontSize="10" FontWeight="SemiBold"/>
+                                        <!-- Gradient Smoothing Group -->
+                                        <StackPanel Spacing="4">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <TextBlock Text="GRADIENT SMOOTHING" Foreground="#8A92AD" FontSize="10" FontWeight="SemiBold"/>
+                                                <TextBlock Grid.Column="1" Name="GradientSmoothingSubText" Text="Banding filter disabled" Foreground="#5C647C" FontSize="9" FontFamily="Consolas" VerticalAlignment="Center"/>
+                                            </Grid>
                                             <Border Background="#07070A" CornerRadius="6" BorderBrush="#1F222F" BorderThickness="1" Padding="2" Height="32">
                                                 <Grid ColumnDefinitions="*,*,*">
                                                     <Border Name="DebandOffIndicator" Grid.Column="0" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="True"/>
                                                     <Border Name="DebandLowIndicator" Grid.Column="1" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="False"/>
                                                     <Border Name="DebandRefIndicator" Grid.Column="2" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="False"/>
                                                     
-                                                    <Button Grid.Column="0" Name="DebandOffButton" Classes="tab-btn active" Content="Off"/>
-                                                    <Button Grid.Column="1" Name="DebandLowButton" Classes="tab-btn" Content="Low"/>
-                                                    <Button Grid.Column="2" Name="DebandRefButton" Classes="tab-btn" Content="REFERENCE"/>
+                                                    <Button Grid.Column="0" Name="DebandOffButton" Classes="tab-btn active" Content="OFF"/>
+                                                    <Button Grid.Column="1" Name="DebandLowButton" Classes="tab-btn" Content="BALANCED"/>
+                                                    <Button Grid.Column="2" Name="DebandRefButton" Classes="tab-btn" Content="HIGH QUALITY"/>
                                                 </Grid>
                                             </Border>
                                         </StackPanel>
 
-                                        <!-- Chroma Upscaling Group -->
-                                        <StackPanel Spacing="6">
-                                            <TextBlock Text="CHROMA UPSCALING" Foreground="#8A92AD" FontSize="10" FontWeight="SemiBold"/>
+                                        <!-- Image Sharpness & Detail Group -->
+                                        <StackPanel Spacing="4">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <TextBlock Text="IMAGE SHARPNESS &amp; DETAIL" Foreground="#8A92AD" FontSize="10" FontWeight="SemiBold"/>
+                                                <TextBlock Grid.Column="1" Name="ImageSharpnessSubText" Text="Fast Mitchell scaler" Foreground="#5C647C" FontSize="9" FontFamily="Consolas" VerticalAlignment="Center"/>
+                                            </Grid>
                                             <Border Background="#07070A" CornerRadius="6" BorderBrush="#1F222F" BorderThickness="1" Padding="2" Height="32">
                                                 <Grid ColumnDefinitions="*,*">
                                                     <Border Name="ScalePerfIndicator" Grid.Column="0" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="True"/>
                                                     <Border Name="ScaleCinematicIndicator" Grid.Column="1" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="False"/>
                                                     
-                                                    <Button Grid.Column="0" Name="ScalePerfButton" Classes="tab-btn active" Content="Performance"/>
-                                                    <Button Grid.Column="1" Name="ScaleCinematicButton" Classes="tab-btn" Content="CINEMATIC"/>
+                                                    <Button Grid.Column="0" Name="ScalePerfButton" Classes="tab-btn active" Content="PERFORMANCE"/>
+                                                    <Button Grid.Column="1" Name="ScaleCinematicButton" Classes="tab-btn" Content="ULTRA QUALITY"/>
                                                 </Grid>
                                             </Border>
                                         </StackPanel>
+                                    </StackPanel>
 
-                                        <!-- Tone-Mapping Curve Group -->
-                                        <StackPanel Spacing="6">
-                                            <TextBlock Text="TONE-MAPPING CURVE" Foreground="#8A92AD" FontSize="10" FontWeight="SemiBold"/>
-                                            <Button Name="ToneMappingButton" HorizontalAlignment="Stretch" Height="32" Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="6" Padding="12,0" HorizontalContentAlignment="Stretch">
-                                                <Grid ColumnDefinitions="*,Auto">
-                                                    <TextBlock Name="ToneMappingSelectedText" Text="bt.2446a" Foreground="#C5CEE3" FontSize="11" VerticalAlignment="Center"/>
-                                                    <PathIcon Grid.Column="1" Data="M7 10l5 5 5-5z" Width="10" Height="10" Foreground="#5C647C" VerticalAlignment="Center"/>
-                                                </Grid>
-                                                <Button.Flyout>
-                                                    <MenuFlyout Placement="Bottom">
-                                                        <MenuItem Header="BT.2446a" Name="ToneMapBt2446aItem"/>
-                                                        <MenuItem Header="Mobius" Name="ToneMapMobiusItem"/>
-                                                        <MenuItem Header="Reinhard" Name="ToneMapReinhardItem"/>
-                                                        <MenuItem Header="Hable" Name="ToneMapHableItem"/>
-                                                        <MenuItem Header="Spline" Name="ToneMapSplineItem"/>
-                                                        <MenuItem Header="Linear" Name="ToneMapLinearItem"/>
-                                                    </MenuFlyout>
-                                                </Button.Flyout>
-                                            </Button>
+                                    <!-- Advanced Tuning Expander -->
+                                    <Expander HorizontalAlignment="Stretch" Background="Transparent" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,8,0,0">
+                                        <Expander.Header>
+                                            <TextBlock Text="▼ ADVANCED MATRIX TUNING" Foreground="#8A92AD" FontSize="10" FontWeight="Bold" LetterSpacing="0.8"/>
+                                        </Expander.Header>
+                                        <Expander.ContentTransition>
+                                            <CrossFade Duration="0:0:0.25"/>
+                                        </Expander.ContentTransition>
+                                        <StackPanel Spacing="14" Margin="0,10,0,0">
+                                            <!-- Tone-Mapping Curve Group -->
+                                            <StackPanel Spacing="6">
+                                                <TextBlock Text="TONE-MAPPING CURVE" Foreground="#8A92AD" FontSize="10" FontWeight="SemiBold"/>
+                                                <Button Name="ToneMappingButton" HorizontalAlignment="Stretch" Height="32" Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="6" Padding="12,0" HorizontalContentAlignment="Stretch">
+                                                    <Grid ColumnDefinitions="*,Auto">
+                                                        <TextBlock Name="ToneMappingSelectedText" Text="bt.2446a" Foreground="#C5CEE3" FontSize="11" VerticalAlignment="Center"/>
+                                                        <PathIcon Grid.Column="1" Data="M7 10l5 5 5-5z" Width="10" Height="10" Foreground="#5C647C" VerticalAlignment="Center"/>
+                                                    </Grid>
+                                                    <Button.Flyout>
+                                                        <MenuFlyout Placement="Bottom">
+                                                            <MenuItem Header="BT.2446a" Name="ToneMapBt2446aItem"/>
+                                                            <MenuItem Header="Mobius" Name="ToneMapMobiusItem"/>
+                                                            <MenuItem Header="Reinhard" Name="ToneMapReinhardItem"/>
+                                                            <MenuItem Header="Hable" Name="ToneMapHableItem"/>
+                                                            <MenuItem Header="Spline" Name="ToneMapSplineItem"/>
+                                                            <MenuItem Header="Linear" Name="ToneMapLinearItem"/>
+                                                        </MenuFlyout>
+                                                    </Button.Flyout>
+                                                </Button>
+                                            </StackPanel>
+
+                                            <!-- Scale Selection Group -->
+                                            <StackPanel Spacing="6">
+                                                <TextBlock Text="SCALING FILTER (SCALE)" Foreground="#8A92AD" FontSize="10" FontWeight="SemiBold"/>
+                                                <ComboBox Name="ScaleComboBox" HorizontalAlignment="Stretch" Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="6" Padding="12,6" FontSize="11" Foreground="#C5CEE3">
+                                                    <ComboBoxItem Content="Mitchell (Performance)"/>
+                                                    <ComboBoxItem Content="Spline36 (Standard)"/>
+                                                    <ComboBoxItem Content="EWA Lanczos (High Fidelity)"/>
+                                                </ComboBox>
+                                            </StackPanel>
+
+                                            <!-- Chroma Scale Selection Group -->
+                                            <StackPanel Spacing="6">
+                                                <TextBlock Text="CHROMA SCALING (CSCALE)" Foreground="#8A92AD" FontSize="10" FontWeight="SemiBold"/>
+                                                <ComboBox Name="CScaleComboBox" HorizontalAlignment="Stretch" Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="6" Padding="12,6" FontSize="11" Foreground="#C5CEE3">
+                                                    <ComboBoxItem Content="Mitchell (Performance)"/>
+                                                    <ComboBoxItem Content="Spline36 (Standard)"/>
+                                                    <ComboBoxItem Content="EWA Lanczos (High Fidelity)"/>
+                                                </ComboBox>
+                                            </StackPanel>
+
+                                            <!-- Interpolation Group -->
+                                            <StackPanel Spacing="6">
+                                                <TextBlock Text="TEMPORAL INTERPOLATION" Foreground="#8A92AD" FontSize="10" FontWeight="SemiBold"/>
+                                                <ComboBox Name="InterpolationComboBox" HorizontalAlignment="Stretch" Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="6" Padding="12,6" FontSize="11" Foreground="#C5CEE3">
+                                                    <ComboBoxItem Content="Off (Source Frame Rate)"/>
+                                                    <ComboBoxItem Content="On (Display Smooth Motion)"/>
+                                                </ComboBox>
+                                            </StackPanel>
+
+                                            <!-- Monitor Profile Override Section -->
+                                            <StackPanel Spacing="6" Name="HdrProfileSelectorContainer">
+                                                <TextBlock Text="MONITOR PROFILE (EDID OVERRIDE)" Foreground="#8A92AD" FontSize="10" FontWeight="SemiBold"/>
+                                                <Border Background="#07070A" CornerRadius="6" BorderBrush="#1F222F" BorderThickness="1" Padding="2" Height="32">
+                                                    <Grid ColumnDefinitions="*,*">
+                                                        <Border Name="HdrProfile400Indicator" Grid.Column="0" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="True"/>
+                                                        <Border Name="HdrProfile1000Indicator" Grid.Column="1" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="False"/>
+                                                        
+                                                        <Button Grid.Column="0" Name="HdrProfile400Button" Classes="tab-btn active" Content="400 Nit OLED"/>
+                                                        <Button Grid.Column="1" Name="HdrProfile1000Button" Classes="tab-btn" Content="1000 Nit Peak"/>
+                                                    </Grid>
+                                                </Border>
+                                            </StackPanel>
                                         </StackPanel>
-                                    </StackPanel>
-
-                                    <!-- Monitor Profile Override Section -->
-                                    <StackPanel Spacing="6" Name="HdrProfileSelectorContainer" Margin="0,4,0,0">
-                                        <TextBlock Text="MONITOR PROFILE (EDID OVERRIDE)" Foreground="#8A92AD" FontSize="10" FontWeight="SemiBold"/>
-                                        <Border Background="#07070A" CornerRadius="6" BorderBrush="#1F222F" BorderThickness="1" Padding="2" Height="32">
-                                            <Grid ColumnDefinitions="*,*,*">
-                                                <Border Name="HdrProfileAutoIndicator" Grid.Column="0" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="True"/>
-                                                <Border Name="HdrProfile400Indicator" Grid.Column="1" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="False"/>
-                                                <Border Name="HdrProfile1000Indicator" Grid.Column="2" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="False"/>
-                                                
-                                                <Button Grid.Column="0" Name="HdrProfileAutoButton" Classes="tab-btn active" Content="Auto-EDID"/>
-                                                <Button Grid.Column="1" Name="HdrProfile400Button" Classes="tab-btn" Content="400 Nit OLED"/>
-                                                <Button Grid.Column="2" Name="HdrProfile1000Button" Classes="tab-btn" Content="1000 Nit Peak"/>
-                                            </Grid>
-                                        </Border>
-                                    </StackPanel>
+                                    </Expander>
                                 </StackPanel>
                             </ScrollViewer>
                         </Grid>
                     </Grid>
                 </Grid>
             </Border>
+
+            <!-- Full-Screen Settings Overlay -->
+            <Grid Grid.Row="1" Grid.ColumnSpan="2" Name="MasterSettingsOverlay" Background="#0C0C12" IsVisible="False" Opacity="0">
+                <Grid.Transitions>
+                    <Transitions>
+                        <DoubleTransition Property="Opacity" Duration="0:0:0.25"/>
+                    </Transitions>
+                </Grid.Transitions>
+                <Grid ColumnDefinitions="260,*">
+                    <!-- Left Sidebar Column (Navigation Categories) -->
+                    <Border Grid.Column="0" Background="#08080C" BorderBrush="#1F222F" BorderThickness="0,0,1,0">
+                        <Grid RowDefinitions="Auto,*,Auto" Margin="20,24">
+                            <!-- Back Button -->
+                            <StackPanel Grid.Row="0" Spacing="16" Margin="0,0,0,24">
+                                <Button Name="SettingsCloseButton" Classes="page-btn" HorizontalAlignment="Stretch" Content="◀ BACK TO PLAYER" FontSize="11" FontWeight="Bold"/>
+                                <TextBlock Text="SETTINGS &amp; CONTROLS" Foreground="#5C647C" FontSize="10" FontWeight="Bold" LetterSpacing="1"/>
+                            </StackPanel>
+
+                            <!-- Navigation List -->
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                <StackPanel Spacing="8">
+                                    <Button Name="NavGeneralButton" Classes="tab-btn active" Content="[01] GENERAL &amp; PATHS" HorizontalContentAlignment="Left" Padding="12,10"/>
+                                    <Button Name="NavEngineButton" Classes="tab-btn" Content="[02] ENGINE &amp; AUTOMATION" HorizontalContentAlignment="Left" Padding="12,10"/>
+                                    <Button Name="NavAudioButton" Classes="tab-btn" Content="[03] AUDIO &amp; PASSTHROUGH" HorizontalContentAlignment="Left" Padding="12,10"/>
+                                    <Button Name="NavSubtitlesButton" Classes="tab-btn" Content="[04] SUBTITLES &amp; TYPOGRAPHY" HorizontalContentAlignment="Left" Padding="12,10"/>
+                                    <Button Name="NavUiButton" Classes="tab-btn" Content="[05] USER INTERFACE &amp; HUD" HorizontalContentAlignment="Left" Padding="12,10"/>
+                                </StackPanel>
+                            </ScrollViewer>
+
+                            <!-- version text -->
+                            <TextBlock Grid.Row="2" Text="BLUEJAY PLAYER v1.2.0" FontFamily="Consolas" FontSize="9" Foreground="#3E4456" HorizontalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Right Column (Configuration Grids Scrollable view) -->
+                    <ScrollViewer Grid.Column="1" Name="SettingsScrollViewer" VerticalScrollBarVisibility="Auto" Margin="32,24">
+                        <StackPanel Spacing="32">
+                            <!-- Section 01: General & Paths -->
+                            <StackPanel Name="SectionGeneral" Spacing="16">
+                                <TextBlock Text="[01] GENERAL &amp; WORKSPACE PATH DEFAULTS" Foreground="#2B88FF" FontSize="12" FontWeight="Bold" LetterSpacing="0.8"/>
+                                <Border Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="8" Padding="16">
+                                    <StackPanel Spacing="16">
+                                        <!-- Boot Directory Route -->
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="Default Boot Directory Route" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                <TextBox Grid.Column="0" Name="DefaultBootDirTextBox" Watermark="e.g. D:/Media/Movies" Background="#0C0C12" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="4" Padding="8,6" FontSize="11" FontFamily="Consolas" Foreground="#C5CEE3" CaretBrush="#2B88FF" SelectionBrush="#2B88FF"/>
+                                                <Button Grid.Column="1" Name="BrowseBootDirButton" Classes="page-btn" Content="..." Width="40" FontSize="11" FontWeight="Bold"/>
+                                            </Grid>
+                                            <TextBlock Text="The root workspace directory loaded when opening the player side drawer." Foreground="#5C647C" FontSize="10"/>
+                                        </StackPanel>
+                                        
+                                        <Border Background="#1F222F" Height="1"/>
+
+                                        <!-- Remember Last Session Directory -->
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Spacing="3">
+                                                <TextBlock Text="Remember Last Session Directory" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
+                                                <TextBlock Text="Overrides default boot path to resume browsing from the last active folder." Foreground="#5C647C" FontSize="10"/>
+                                            </StackPanel>
+                                            <ToggleSwitch Grid.Column="1" Name="RememberLastDirToggle" OnContent="Yes" OffContent="No" IsChecked="True"/>
+                                        </Grid>
+                                        
+                                        <Border Background="#1F222F" Height="1"/>
+
+                                        <!-- Instance Rules -->
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Spacing="3">
+                                                <TextBlock Text="Allow Multiple Windows" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
+                                                <TextBlock Text="Allows opening multiple player instances simultaneously." Foreground="#5C647C" FontSize="10"/>
+                                            </StackPanel>
+                                            <ToggleSwitch Grid.Column="1" Name="AllowMultipleInstancesToggle" OnContent="Yes" OffContent="No"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+
+                            <!-- Section 02: Engine & Automation -->
+                            <StackPanel Name="SectionEngine" Spacing="16">
+                                <TextBlock Text="[02] ENGINE OVERRIDE &amp; AUTOMATION MANAGEMENT" Foreground="#2B88FF" FontSize="12" FontWeight="Bold" LetterSpacing="0.8"/>
+                                <Border Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="8" Padding="16">
+                                    <StackPanel Spacing="16">
+                                        <!-- HDR Format Fallback Guard -->
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Spacing="3" Margin="0,0,16,0">
+                                                <TextBlock Text="Disable HDR Peak Computation" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
+                                                <TextBlock Text="Disables libmpv's dynamic peak-luminance analysis (hdr-compute-peak=no) for basic OS color mapping." Foreground="#5C647C" FontSize="10" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                            <ToggleSwitch Grid.Column="1" Name="DisableHdrPeakToggle" OnContent="Yes" OffContent="No"/>
+                                        </Grid>
+                                        
+                                        <Border Background="#1F222F" Height="1"/>
+
+                                        <!-- Force Software Decoding -->
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Spacing="3" Margin="0,0,16,0">
+                                                <TextBlock Text="Force Software Decoding" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
+                                                <TextBlock Text="Disables hardware decoding (hwdec=no) to work around buggy GPU drivers." Foreground="#5C647C" FontSize="10" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                            <ToggleSwitch Grid.Column="1" Name="ForceSoftwareDecodingToggle" OnContent="Yes" OffContent="No"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+
+                            <!-- Section 03: High-Fidelity Audio Setup -->
+                            <StackPanel Name="SectionAudio" Spacing="16">
+                                <TextBlock Text="[03] HIGH-FIDELITY AUDIO SETUP" Foreground="#2B88FF" FontSize="12" FontWeight="Bold" LetterSpacing="0.8"/>
+                                <Border Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="8" Padding="16">
+                                    <StackPanel Spacing="16">
+                                        <!-- Default Audio Output Language -->
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="Default Audio Output Track Language" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
+                                            <TextBox Name="DefaultAudioLangTextBox" Watermark="e.g. eng, jpn" Background="#0C0C12" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="4" Padding="8,6" FontSize="11" FontFamily="Consolas" Foreground="#C5CEE3" CaretBrush="#2B88FF" SelectionBrush="#2B88FF"/>
+                                            <TextBlock Text="Automatically select audio tracks matching your language preference." Foreground="#5C647C" FontSize="10"/>
+                                        </StackPanel>
+                                        
+                                        <Border Background="#1F222F" Height="1"/>
+
+                                        <!-- Hardware Passthrough Matrix -->
+                                        <StackPanel Spacing="8">
+                                            <TextBlock Text="Hardware Passthrough Bitstreaming" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
+                                            <TextBlock Text="Select audio formats to pass directly to your external AV receiver decoder." Foreground="#5C647C" FontSize="10" Margin="0,0,0,4"/>
+                                            <Grid ColumnDefinitions="*,*,*,*">
+                                                <CheckBox Grid.Column="0" Name="PassthroughAc3CheckBox" Content="AC3"/>
+                                                <CheckBox Grid.Column="1" Name="PassthroughDtsCheckBox" Content="DTS"/>
+                                                <CheckBox Grid.Column="2" Name="PassthroughDtsHdCheckBox" Content="DTS-HD"/>
+                                                <CheckBox Grid.Column="3" Name="PassthroughTrueHdCheckBox" Content="TrueHD"/>
+                                            </Grid>
+                                        </StackPanel>
+                                        
+                                        <Border Background="#1F222F" Height="1"/>
+
+                                        <!-- Exclusive Audio Lockout -->
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Spacing="3" Margin="0,0,16,0">
+                                                <TextBlock Text="Exclusive Audio Lockout (WASAPI Exclusive)" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
+                                                <TextBlock Text="Bypasses Windows Mixer for bitperfect output. Blocks background OS notifications and browser sounds." Foreground="#5C647C" FontSize="10" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                            <ToggleSwitch Grid.Column="1" Name="WasapiExclusiveToggle" OnContent="Yes" OffContent="No"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+
+                            <!-- Section 04: Advanced Typography Customization -->
+                            <StackPanel Name="SectionTypography" Spacing="16">
+                                <TextBlock Text="[04] ADVANCED TYPOGRAPHY CUSTOMIZATION" Foreground="#2B88FF" FontSize="12" FontWeight="Bold" LetterSpacing="0.8"/>
+                                <Border Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="8" Padding="16">
+                                    <StackPanel Spacing="16">
+                                        <!-- Global Subtitle Font Family Override -->
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="Global Subtitle Override Font Family" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
+                                            <ComboBox Name="SubtitleFontComboBox" HorizontalAlignment="Stretch" Background="#0C0C12" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="4" Padding="10,6" FontSize="11" Foreground="#C5CEE3"/>
+                                            <TextBlock Text="Overrides subtitle font family system-wide." Foreground="#5C647C" FontSize="10"/>
+                                        </StackPanel>
+                                        
+                                        <Border Background="#1F222F" Height="1"/>
+
+                                        <!-- Backdrop Outline Size -->
+                                        <StackPanel Spacing="6">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <TextBlock Text="Subtitle Border Outline Size" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
+                                                <TextBlock Grid.Column="1" Name="SubBorderSizeValueText" Text="3.0 px" Foreground="#2B88FF" FontSize="11" FontFamily="Consolas" FontWeight="Bold"/>
+                                            </Grid>
+                                            <Slider Name="SubBorderSizeSlider" Minimum="0" Maximum="8" Value="3" SmallChange="0.5" LargeChange="1.0"/>
+                                        </StackPanel>
+                                        
+                                        <Border Background="#1F222F" Height="1"/>
+
+                                        <!-- Backdrop Shadow Size -->
+                                        <StackPanel Spacing="6">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <TextBlock Text="Subtitle Drop Shadow Offset" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
+                                                <TextBlock Grid.Column="1" Name="SubShadowOffsetValueText" Text="1.0 px" Foreground="#2B88FF" FontSize="11" FontFamily="Consolas" FontWeight="Bold"/>
+                                            </Grid>
+                                            <Slider Name="SubShadowOffsetSlider" Minimum="0" Maximum="8" Value="1" SmallChange="0.5" LargeChange="1.0"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+
+                            <!-- Section 05: Interface Styling & OSD HUD Layout -->
+                            <StackPanel Name="SectionUi" Spacing="16">
+                                <TextBlock Text="[05] INTERFACE STYLING &amp; OSD HUD LAYOUT" Foreground="#2B88FF" FontSize="12" FontWeight="Bold" LetterSpacing="0.8"/>
+                                <Border Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="8" Padding="16">
+                                    <StackPanel Spacing="16">
+                                        <!-- Default Workspace Tab -->
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="Default Drawer Workspace Tab" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
+                                            <ComboBox Name="DefaultWorkspaceTabComboBox" HorizontalAlignment="Stretch" Background="#0C0C12" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="4" Padding="10,6" FontSize="11" Foreground="#C5CEE3">
+                                                <ComboBoxItem Content="Queue"/>
+                                                <ComboBoxItem Content="Directory"/>
+                                                <ComboBoxItem Content="Engine"/>
+                                            </ComboBox>
+                                            <TextBlock Text="Choose which section of the sliding side panel is selected when starting the application." Foreground="#5C647C" FontSize="10"/>
+                                        </StackPanel>
+                                        
+                                        <Border Background="#1F222F" Height="1"/>
+
+                                        <!-- Layout Mode Switch -->
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Spacing="3" Margin="0,0,16,0">
+                                                <TextBlock Text="Tactical Deck Layout Mode" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
+                                                <TextBlock Text="Enable the dual-row Tactical Deck control interface instead of the minimalist Stealth Rail." Foreground="#5C647C" FontSize="10" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                            <ToggleSwitch Grid.Column="1" Name="TacticalDeckToggle" OnContent="Yes" OffContent="No"/>
+                                        </Grid>
+                                        
+                                        <Border Background="#1F222F" Height="1"/>
+
+                                        <!-- Display System Clock Toggle -->
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Spacing="3" Margin="0,0,16,0">
+                                                <TextBlock Text="Display System Clock" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
+                                                <TextBlock Text="Shows a real-world system clock in the transport bar time display." Foreground="#5C647C" FontSize="10" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                            <ToggleSwitch Grid.Column="1" Name="ShowSystemClockToggle" OnContent="Yes" OffContent="No"/>
+                                        </Grid>
+                                        
+                                        <Border Background="#1F222F" Height="1"/>
+
+                                        <!-- System Clock Format Selector -->
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Spacing="3" Margin="0,0,16,0">
+                                                <TextBlock Text="System Clock Format" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
+                                                <TextBlock Text="Toggle between 24-hour style format and 12-hour AM/PM format." Foreground="#5C647C" FontSize="10" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                            <ComboBox Grid.Column="1" Name="ClockFormatComboBox" SelectedIndex="0" FontSize="10" Height="26" Padding="8,4" Width="180" Background="#0A0A10" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="4" Foreground="#C5CEE3">
+                                                <ComboBoxItem Content="24-Hour (HH:mm)"/>
+                                                <ComboBoxItem Content="12-Hour (h:mm tt)"/>
+                                            </ComboBox>
+                                        </Grid>
+
+                                        <Border Background="#1F222F" Height="1"/>
+
+                                        <!-- Performance Stabilizer OSD Notifications -->
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Spacing="3" Margin="0,0,16,0">
+                                                <TextBlock Text="Disable Performance Stabilizer OSD Warning Popups" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
+                                                <TextBlock Text="Hides top slide-in warnings when rendering limits are exceeded and performance rules scale down settings." Foreground="#5C647C" FontSize="10" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                            <ToggleSwitch Grid.Column="1" Name="DisableOsdNotificationsToggle" OnContent="Yes" OffContent="No"/>
+                                        </Grid>
+                                        
+                                        <Border Background="#1F222F" Height="1"/>
+
+                                        <!-- Timeline Seeking Previews -->
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Spacing="3" Margin="0,0,16,0">
+                                                <TextBlock Text="Disable Timeline Seeking Previews" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
+                                                <TextBlock Text="Disables rendering video preview frames when hovering over the seek timeline bar to conserve CPU/GPU." Foreground="#5C647C" FontSize="10" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                            <ToggleSwitch Grid.Column="1" Name="DisableSeekingPreviewsToggle" OnContent="Yes" OffContent="No"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </Grid>
 
             <Grid Grid.Row="0" Grid.RowSpan="2" Grid.ColumnSpan="2" Name="ResizeGrid" ColumnDefinitions="6,*,6" RowDefinitions="6,*,6" IsHitTestVisible="True">
                 <Border Grid.Row="0" Grid.Column="0" Background="Transparent" Cursor="TopLeftCorner" Tag="NorthWest" PointerPressed="OnResizePointerPressed"/>
