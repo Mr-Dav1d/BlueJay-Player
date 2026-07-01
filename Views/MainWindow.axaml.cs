@@ -131,6 +131,10 @@ public partial class MainWindow : Window
     private Button[] _subtitleButtons = Array.Empty<Button>();
     private MenuFlyout[] _audioFlyouts = Array.Empty<MenuFlyout>();
     private MenuFlyout[] _subtitleFlyouts = Array.Empty<MenuFlyout>();
+    private Button[] _settingsButtons = Array.Empty<Button>();
+
+    // Video Engine State Variables
+    private string _hwdecMode = "auto";          // "auto", "nvdec", "d3d11va", "no"
 
     // Layout References for Fullscreen Operations
     private Grid? _mainRootGrid;
@@ -250,6 +254,16 @@ public partial class MainWindow : Window
     private TextBlock? _renderingProfileSubText;
     private TextBlock? _gradientSmoothingSubText;
     private TextBlock? _imageSharpnessSubText;
+    private TextBlock? _hwdecSubText;
+
+    private Border? _hwdecAutoIndicator;
+    private Border? _hwdecNvdecIndicator;
+    private Border? _hwdecD3d11Indicator;
+    private Border? _hwdecCpuIndicator;
+    private Button? _hwdecAutoButton;
+    private Button? _hwdecNvdecButton;
+    private Button? _hwdecD3d11Button;
+    private Button? _hwdecCpuButton;
 
     private Border? _hdrProfile400Indicator;
     private Border? _hdrProfile1000Indicator;
@@ -558,6 +572,10 @@ public partial class MainWindow : Window
         _subtitleButtons = new Button[] { singleSubBtn!, deckSubBtn! }.Where(x => x != null).ToArray();
         _subtitleFlyouts = _subtitleButtons.Select(b => b.Flyout as MenuFlyout).Where(f => f != null).ToArray()!;
 
+        var singleSettingsBtn = FindInTree<Button>(hudPanel, "SingleSettingsButton");
+        var deckSettingsBtn = FindInTree<Button>(hudPanel, "DeckSettingsButton");
+        _settingsButtons = new Button[] { singleSettingsBtn!, deckSettingsBtn! }.Where(x => x != null).ToArray();
+
         _osdCard           = FindInTree<Border>(hudPanel, "OsdCard");
         _osdIcon           = FindInTree<TextBlock>(hudPanel, "OsdIcon");
         _osdText           = FindInTree<TextBlock>(hudPanel, "OsdText");
@@ -778,6 +796,11 @@ public partial class MainWindow : Window
         PopulateAudioTracks();
         PopulateSubtitleTracks();
 
+        foreach (var btn in _settingsButtons)
+        {
+            btn.Click += (s, e) => ShowEngineSettingsInSidebar();
+        }
+
         foreach (var btn in _sidePanelButtons)
         {
             btn.Click += (s, e) => ToggleSidePanel();
@@ -835,7 +858,7 @@ public partial class MainWindow : Window
             if (_mpvHandle == IntPtr.Zero) return;
 
             SetMpvOptionString(_mpvHandle, "wid", hwnd.ToInt64().ToString());
-            SetMpvOptionString(_mpvHandle, "hwdec", _forceSoftwareDecoding ? "no" : "auto");
+            SetMpvOptionString(_mpvHandle, "hwdec", _hwdecMode);
 
             int initResult = MpvInitialize(_mpvHandle);
             Log($"Engine initialization code returned: {initResult}");
@@ -873,6 +896,7 @@ public partial class MainWindow : Window
                 ApplyAudioSettings();
                 ApplyTypographySettings();
                 ApplyDecodingSettings();
+
 
                 if (!string.IsNullOrEmpty(_pendingFileToLoad))
                 {
@@ -1415,6 +1439,9 @@ public partial class MainWindow : Window
             SetMpvPropertyString(_mpvHandle, "sid", trackId.ToString());
         }
     }
+
+
+
 
     private void UpdateTransportUI(double current, double total)
     {
@@ -2582,6 +2609,23 @@ public partial class MainWindow : Window
         _cScaleComboBox = this.FindControl<ComboBox>("CScaleComboBox");
         _interpolationComboBox = this.FindControl<ComboBox>("InterpolationComboBox");
 
+        _hwdecSubText = this.FindControl<TextBlock>("HwdecSubText");
+        _hwdecAutoIndicator = this.FindControl<Border>("HwdecAutoIndicator");
+        _hwdecNvdecIndicator = this.FindControl<Border>("HwdecNvdecIndicator");
+        _hwdecD3d11Indicator = this.FindControl<Border>("HwdecD3d11Indicator");
+        _hwdecCpuIndicator = this.FindControl<Border>("HwdecCpuIndicator");
+        _hwdecAutoButton = this.FindControl<Button>("HwdecAutoButton");
+        _hwdecNvdecButton = this.FindControl<Button>("HwdecNvdecButton");
+        _hwdecD3d11Button = this.FindControl<Button>("HwdecD3d11Button");
+        _hwdecCpuButton = this.FindControl<Button>("HwdecCpuButton");
+
+        if (_hwdecAutoButton != null) _hwdecAutoButton.Click += (s, e) => ApplyHwdecConfig("auto");
+        if (_hwdecNvdecButton != null) _hwdecNvdecButton.Click += (s, e) => ApplyHwdecConfig("nvdec");
+        if (_hwdecD3d11Button != null) _hwdecD3d11Button.Click += (s, e) => ApplyHwdecConfig("d3d11va");
+        if (_hwdecCpuButton != null) _hwdecCpuButton.Click += (s, e) => ApplyHwdecConfig("no");
+
+        UpdateHwdecUI();
+
         if (_envEcoButton != null) _envEcoButton.Click += (s, e) => ApplyEnvironmentProfile("Eco");
         if (_envDesktopButton != null) _envDesktopButton.Click += (s, e) => ApplyEnvironmentProfile("Desktop");
         if (_envEnthusiastButton != null) _envEnthusiastButton.Click += (s, e) => ApplyEnvironmentProfile("Enthusiast");
@@ -2678,6 +2722,23 @@ public partial class MainWindow : Window
             await Task.Delay(15);
         }
         _videoSurface?.SyncOverlayGeometry();
+    }
+
+    private void ShowEngineSettingsInSidebar()
+    {
+        if (_dynamicSidePanel == null) return;
+        if (_dynamicSidePanel.Width == 320 && _activeTab == "Engine")
+        {
+            ToggleSidePanel();
+        }
+        else
+        {
+            if (_dynamicSidePanel.Width == 0)
+            {
+                ToggleSidePanel();
+            }
+            SwitchTab("Engine");
+        }
     }
 
     private void SwitchTab(string tabName)
@@ -3827,7 +3888,50 @@ public partial class MainWindow : Window
             }
         });
     }
-    
+    private void ApplyHwdecConfig(string mode)
+    {
+        _hwdecMode = mode;
+        if (_mpvHandle == IntPtr.Zero || !_isEngineInitialized)
+        {
+            UpdateHwdecUI();
+            return;
+        }
+
+        Log($"Applying Hwdec configuration -> Mode: {mode}");
+        SetMpvPropertyString(_mpvHandle, "hwdec", mode);
+
+        UpdateHwdecUI();
+    }
+
+    private void UpdateHwdecUI()
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            string mode = _hwdecMode;
+            if (_hwdecAutoIndicator != null) _hwdecAutoIndicator.IsVisible = (mode == "auto");
+            if (_hwdecNvdecIndicator != null) _hwdecNvdecIndicator.IsVisible = (mode == "nvdec");
+            if (_hwdecD3d11Indicator != null) _hwdecD3d11Indicator.IsVisible = (mode == "d3d11va");
+            if (_hwdecCpuIndicator != null) _hwdecCpuIndicator.IsVisible = (mode == "no");
+
+            if (_hwdecAutoButton != null) ToggleClass(_hwdecAutoButton, "active", (mode == "auto"));
+            if (_hwdecNvdecButton != null) ToggleClass(_hwdecNvdecButton, "active", (mode == "nvdec"));
+            if (_hwdecD3d11Button != null) ToggleClass(_hwdecD3d11Button, "active", (mode == "d3d11va"));
+            if (_hwdecCpuButton != null) ToggleClass(_hwdecCpuButton, "active", (mode == "no"));
+
+            if (_hwdecSubText != null)
+            {
+                _hwdecSubText.Text = mode switch
+                {
+                    "auto" => "Smart Auto",
+                    "nvdec" => "NVIDIA NVDEC Hardware",
+                    "d3d11va" => "Windows D3D11 Hardware",
+                    "no" => "Processor Only (CPU)",
+                    _ => "Smart Auto"
+                };
+            }
+        });
+    }
+
     private void UpdateDebandUI()
     {
         Dispatcher.UIThread.Post(() =>
@@ -4013,6 +4117,7 @@ public partial class MainWindow : Window
         {
             SetMpvPropertyString(_mpvHandle, "interpolation", "yes");
             SetMpvPropertyString(_mpvHandle, "video-sync", "display-resample");
+            SetMpvPropertyString(_mpvHandle, "tscale", "linear");
         }
         else
         {
@@ -4088,6 +4193,7 @@ public partial class MainWindow : Window
                     _allowMultipleInstances = settings.AllowMultipleInstances;
                     _disableHdrPeak = settings.DisableHdrPeak;
                     _forceSoftwareDecoding = settings.ForceSoftwareDecoding;
+                    _hwdecMode = _forceSoftwareDecoding ? "no" : "auto";
                     _defaultAudioLanguage = settings.DefaultAudioLanguage ?? "eng";
                     _passthroughAc3 = settings.PassthroughAc3;
                     _passthroughDts = settings.PassthroughDts;
@@ -4125,7 +4231,7 @@ public partial class MainWindow : Window
                 LastDirectoryPath = _rememberLastDirectoryPath ? _currentDirectoryPath : "",
                 AllowMultipleInstances = _allowMultipleInstances,
                 DisableHdrPeak = _disableHdrPeak,
-                ForceSoftwareDecoding = _forceSoftwareDecoding,
+                ForceSoftwareDecoding = _hwdecMode == "no",
                 DefaultAudioLanguage = _defaultAudioLanguage,
                 PassthroughAc3 = _passthroughAc3,
                 PassthroughDts = _passthroughDts,
@@ -4182,8 +4288,8 @@ public partial class MainWindow : Window
     private void ApplyDecodingSettings()
     {
         if (_mpvHandle == IntPtr.Zero || !_isEngineInitialized) return;
-        Log($"Applying custom settings -> hwdec={(_forceSoftwareDecoding ? "no" : "auto")}");
-        SetMpvPropertyString(_mpvHandle, "hwdec", _forceSoftwareDecoding ? "no" : "auto");
+        Log($"Applying custom settings -> hwdec={_hwdecMode}");
+        SetMpvPropertyString(_mpvHandle, "hwdec", _hwdecMode);
     }
 
     private void OpenSettings()
@@ -4195,7 +4301,7 @@ public partial class MainWindow : Window
         if (_rememberLastDirToggle != null) _rememberLastDirToggle.IsChecked = _rememberLastDirectoryPath;
         if (_allowMultipleInstancesToggle != null) _allowMultipleInstancesToggle.IsChecked = _allowMultipleInstances;
         if (_disableHdrPeakToggle != null) _disableHdrPeakToggle.IsChecked = _disableHdrPeak;
-        if (_forceSoftwareDecodingToggle != null) _forceSoftwareDecodingToggle.IsChecked = _forceSoftwareDecoding;
+        if (_forceSoftwareDecodingToggle != null) _forceSoftwareDecodingToggle.IsChecked = _hwdecMode == "no";
         if (_defaultAudioLangTextBox != null) _defaultAudioLangTextBox.Text = _defaultAudioLanguage;
         
         if (_passthroughAc3CheckBox != null) _passthroughAc3CheckBox.IsChecked = _passthroughAc3;
@@ -4241,7 +4347,13 @@ public partial class MainWindow : Window
         if (_allowMultipleInstancesToggle != null) _allowMultipleInstances = _allowMultipleInstancesToggle.IsChecked ?? false;
         
         if (_disableHdrPeakToggle != null) _disableHdrPeak = _disableHdrPeakToggle.IsChecked ?? false;
-        if (_forceSoftwareDecodingToggle != null) _forceSoftwareDecoding = _forceSoftwareDecodingToggle.IsChecked ?? false;
+        if (_forceSoftwareDecodingToggle != null)
+        {
+            _forceSoftwareDecoding = _forceSoftwareDecodingToggle.IsChecked ?? false;
+            _hwdecMode = _forceSoftwareDecoding ? "no" : "auto";
+            UpdateHwdecUI();
+            ApplyDecodingSettings();
+        }
         if (_defaultAudioLangTextBox != null) _defaultAudioLanguage = _defaultAudioLangTextBox.Text ?? "eng";
         
         if (_passthroughAc3CheckBox != null) _passthroughAc3 = _passthroughAc3CheckBox.IsChecked ?? false;
