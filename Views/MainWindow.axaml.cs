@@ -113,7 +113,8 @@ public partial class MainWindow : Window
     private PathIcon[] _volumeIcons = Array.Empty<PathIcon>();
     private System.Threading.CancellationTokenSource? _transportCts;
     private bool _isPaused;
-    private bool _showRemainingTime;
+    private int _durationDisplayMode = 0; // 0: Total Duration, 1: Remaining Time, 2: Real-World Finish Time
+    private string _currentLoadedFilePath = "";
     private bool _isMuted;
     private double _volumeBeforeMute = 100;
     private bool _isVolumeUpdatingFromMpv;
@@ -251,11 +252,6 @@ public partial class MainWindow : Window
     private TextBlock? _gradientSmoothingSubText;
     private TextBlock? _imageSharpnessSubText;
 
-    private Border? _hdrProfile400Indicator;
-    private Border? _hdrProfile1000Indicator;
-    private Button? _hdrProfile400Button;
-    private Button? _hdrProfile1000Button;
-
     // Hardware Environment Profile UI References
     private Button? _envEcoButton;
     private Button? _envDesktopButton;
@@ -282,7 +278,7 @@ public partial class MainWindow : Window
     private string _manualDebandMode = "Off";
     private bool _manualCinematicScaling = false;
     private string _manualToneMapping = "bt.2446a";
-    private string _hdrDisplayProfileOverride = "400 Nit OLED";
+
 
     // Settings Page Backing Fields
     private string _defaultBootDirectoryPath = "";
@@ -469,6 +465,8 @@ public partial class MainWindow : Window
         _videoSurface = this.FindControl<MpvVideoSurface>("VideoSurface");
         if (_videoSurface != null)
         {
+            _videoSurface.DoubleTapHandler = (s, e) => Dispatcher.UIThread.Post(() => ToggleFullscreen());
+            _videoSurface.DoubleTapped += (s, e) => ToggleFullscreen();
             _videoSurface.HandleReady = (hwnd) =>
             {
                 _cachedHwnd = hwnd;
@@ -498,6 +496,17 @@ public partial class MainWindow : Window
             return;
         }
         _hudPanel = hudPanel;
+        _hudPanel.DoubleTapped += (s, e) =>
+        {
+            var source = e.Source as Avalonia.Visual;
+            while (source != null && source != _hudPanel)
+            {
+                if (source is Button || source is Slider || source is ComboBox || source is TextBox)
+                    return;
+                source = source.GetVisualParent();
+            }
+            ToggleFullscreen();
+        };
 
         _transportBar      = FindInTree<Border>(hudPanel, "TransportBar");
         if (_transportBar != null)
@@ -688,7 +697,7 @@ public partial class MainWindow : Window
             durText.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
             durText.PointerPressed += (_, _) =>
             {
-                _showRemainingTime = !_showRemainingTime;
+                _durationDisplayMode = (_durationDisplayMode + 1) % 3;
                 UpdateTransportUI(_playbackPosition, _playbackDuration);
             };
         }
@@ -836,6 +845,8 @@ public partial class MainWindow : Window
 
             SetMpvOptionString(_mpvHandle, "wid", hwnd.ToInt64().ToString());
             SetMpvOptionString(_mpvHandle, "hwdec", _forceSoftwareDecoding ? "no" : "auto");
+            SetMpvOptionString(_mpvHandle, "target-peak", "auto");
+            SetMpvOptionString(_mpvHandle, "sub-auto", "all");
 
             int initResult = MpvInitialize(_mpvHandle);
             Log($"Engine initialization code returned: {initResult}");
@@ -1288,7 +1299,7 @@ public partial class MainWindow : Window
                         var topLevel = TopLevel.GetTopLevel(this);
                         if (topLevel != null)
                         {
-                            var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+                            var options = new FilePickerOpenOptions
                             {
                                 Title = "Select Subtitle File",
                                 AllowMultiple = false,
@@ -1299,7 +1310,24 @@ public partial class MainWindow : Window
                                         Patterns = new[] { "*.srt", "*.vtt", "*.ass", "*.sub", "*.ssa" }
                                     }
                                 }
-                            });
+                            };
+
+                            string? targetFolder = null;
+                            if (!string.IsNullOrEmpty(_currentLoadedFilePath))
+                            {
+                                targetFolder = System.IO.Path.GetDirectoryName(_currentLoadedFilePath);
+                            }
+                            if ((string.IsNullOrEmpty(targetFolder) || !Directory.Exists(targetFolder)) && !string.IsNullOrEmpty(_currentDirectoryPath))
+                            {
+                                targetFolder = _currentDirectoryPath;
+                            }
+
+                            if (!string.IsNullOrEmpty(targetFolder) && Directory.Exists(targetFolder))
+                            {
+                                options.SuggestedStartLocation = await topLevel.StorageProvider.TryGetFolderFromPathAsync(targetFolder);
+                            }
+
+                            var files = await topLevel.StorageProvider.OpenFilePickerAsync(options);
 
                             if (files != null && files.Count > 0)
                             {
@@ -1448,19 +1476,26 @@ public partial class MainWindow : Window
             foreach (var txt in _currentTimeTexts)
                 txt.Text = currentStr;
 
-            if (_showRemainingTime)
+            double remaining = Math.Max(0, total - current);
+            string durationDisplay;
+
+            if (_durationDisplayMode == 1)
             {
-                double remaining = Math.Max(0, total - current);
-                string remainStr = "-" + TimeSpan.FromSeconds(remaining).ToString(@"hh\:mm\:ss");
-                foreach (var txt in _totalDurationTexts)
-                    txt.Text = remainStr;
+                durationDisplay = "-" + TimeSpan.FromSeconds(remaining).ToString(@"hh\:mm\:ss");
+            }
+            else if (_durationDisplayMode == 2)
+            {
+                DateTime finishTime = DateTime.Now.AddSeconds(remaining);
+                string timeFmt = _use24HourClock ? "HH:mm" : "h:mm tt";
+                durationDisplay = $"Ends at {finishTime.ToString(timeFmt)}";
             }
             else
             {
-                string totalStr = TimeSpan.FromSeconds(total).ToString(@"hh\:mm\:ss");
-                foreach (var txt in _totalDurationTexts)
-                    txt.Text = totalStr;
+                durationDisplay = TimeSpan.FromSeconds(total).ToString(@"hh\:mm\:ss");
             }
+
+            foreach (var txt in _totalDurationTexts)
+                txt.Text = durationDisplay;
         });
     }
 
@@ -1711,6 +1746,8 @@ public partial class MainWindow : Window
 
     private void PlayMediaFile(string filePath)
     {
+        _currentLoadedFilePath = filePath;
+
         if (_mpvHandle == IntPtr.Zero || !_isEngineInitialized)
         {
             Log($"PlayMediaFile skipped — engine not ready (handle={_mpvHandle}, initialized={_isEngineInitialized}). File: {filePath}");
@@ -2512,15 +2549,6 @@ public partial class MainWindow : Window
         _gradientSmoothingSubText = this.FindControl<TextBlock>("GradientSmoothingSubText");
         _imageSharpnessSubText = this.FindControl<TextBlock>("ImageSharpnessSubText");
 
-        _hdrProfile400Indicator = this.FindControl<Border>("HdrProfile400Indicator");
-        _hdrProfile1000Indicator = this.FindControl<Border>("HdrProfile1000Indicator");
-        _hdrProfile400Button = this.FindControl<Button>("HdrProfile400Button");
-        _hdrProfile1000Button = this.FindControl<Button>("HdrProfile1000Button");
-
-        if (_hdrProfile400Button != null) _hdrProfile400Button.Click += (s, e) => SetHdrProfileOverride("400 Nit OLED");
-        if (_hdrProfile1000Button != null) _hdrProfile1000Button.Click += (s, e) => SetHdrProfileOverride("1000 Nit Peak");
-
-        SetHdrProfileOverride(_hdrDisplayProfileOverride);
 
         _hdrSdrIndicator = this.FindControl<Border>("HdrSdrIndicator");
         _hdrActiveIndicator = this.FindControl<Border>("HdrActiveIndicator");
@@ -4030,43 +4058,6 @@ public partial class MainWindow : Window
         return string.Join(" ❯ ", parts.Select(p => p.ToUpperInvariant()));
     }
 
-    private void ApplyManualMonitorProfile()
-    {
-        if (_mpvHandle == IntPtr.Zero || !_isEngineInitialized) return;
-
-        string profile = _hdrDisplayProfileOverride;
-        Log($"Applying Manual Monitor Profile: {profile}");
-
-        if (profile == "400 Nit OLED")
-        {
-            SetMpvPropertyString(_mpvHandle, "target-contrast", "inf");
-            SetMpvPropertyString(_mpvHandle, "target-peak", "400");
-        }
-        else // "1000 Nit Peak"
-        {
-            SetMpvPropertyString(_mpvHandle, "target-contrast", "default");
-            SetMpvPropertyString(_mpvHandle, "target-peak", "1000");
-        }
-    }
-
-    private void SetHdrProfileOverride(string profileName)
-    {
-        _hdrDisplayProfileOverride = profileName;
-
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (_hdrProfile400Indicator != null) _hdrProfile400Indicator.IsVisible = (profileName == "400 Nit OLED");
-            if (_hdrProfile1000Indicator != null) _hdrProfile1000Indicator.IsVisible = (profileName == "1000 Nit Peak");
-
-            if (_hdrProfile400Button != null) ToggleClass(_hdrProfile400Button, "active", profileName == "400 Nit OLED");
-            if (_hdrProfile1000Button != null) ToggleClass(_hdrProfile1000Button, "active", profileName == "1000 Nit Peak");
-        });
-
-        Log($"> MONITOR OSD OVERRIDE SELECT: {profileName}");
-
-        ApplyManualMonitorProfile();
-        SaveSettings();
-    }
 
     private void LoadSettings()
     {
@@ -4101,7 +4092,6 @@ public partial class MainWindow : Window
                     _disableOsdNotifications = settings.DisableOsdNotifications;
                     _disableSeekingPreviews = settings.DisableSeekingPreviews;
                     _directorySortMode = settings.DirectorySortMode;
-                    _hdrDisplayProfileOverride = settings.HdrDisplayProfileOverride ?? "400 Nit OLED";
                 }
             }
         }
@@ -4138,8 +4128,7 @@ public partial class MainWindow : Window
                 DefaultWorkspaceTab = _defaultWorkspaceTab,
                 DisableOsdNotifications = _disableOsdNotifications,
                 DisableSeekingPreviews = _disableSeekingPreviews,
-                DirectorySortMode = _directorySortMode,
-                HdrDisplayProfileOverride = _hdrDisplayProfileOverride
+                DirectorySortMode = _directorySortMode
             };
             string settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "settings.json");
             string json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
@@ -4602,5 +4591,4 @@ public class UserSettings
     public bool DisableOsdNotifications { get; set; } = false;
     public bool DisableSeekingPreviews { get; set; } = false;
     public int DirectorySortMode { get; set; } = 0;
-    public string HdrDisplayProfileOverride { get; set; } = "400 Nit OLED";
 }

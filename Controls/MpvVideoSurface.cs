@@ -13,6 +13,7 @@ public class MpvVideoSurface : NativeControlHost
 {
     public Action<IntPtr>? HandleReady { get; set; }
     public Action<object?, DragEventArgs>? DropHandler { get; set; }
+    public Action<object?, TappedEventArgs>? DoubleTapHandler { get; set; }
 
     private Window? _overlayWindow;
     private Window? _parentWindow;
@@ -86,6 +87,7 @@ public class MpvVideoSurface : NativeControlHost
         _overlayWindow.PointerMoved += OnOverlayPointerMoved;
         _overlayWindow.PointerPressed += OnOverlayPointerPressed;
         _overlayWindow.PointerReleased += OnOverlayPointerReleased;
+        _overlayWindow.DoubleTapped += OnOverlayDoubleTapped;
         _overlayWindow.KeyDown += OnOverlayKeyDown;
 
         _overlayWindow.Show(_parentWindow);
@@ -118,6 +120,21 @@ public class MpvVideoSurface : NativeControlHost
     private void OnOverlayPointerMoved(object? sender, PointerEventArgs e)
     {
         RaiseEvent(e);
+    }
+
+    private void OnOverlayDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        var source = e.Source as Avalonia.Visual;
+        while (source != null && source != _overlayWindow)
+        {
+            if (source is Button || source is Slider || source is ComboBox || source is TextBox)
+            {
+                return;
+            }
+            source = source.GetVisualParent();
+        }
+
+        DoubleTapHandler?.Invoke(sender, e);
     }
 
     private void OnOverlayPointerPressed(object? sender, PointerEventArgs e)

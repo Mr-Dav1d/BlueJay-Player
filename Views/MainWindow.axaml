@@ -678,19 +678,6 @@
                                                 </ComboBox>
                                             </StackPanel>
 
-                                            <!-- Monitor Profile Override Section -->
-                                            <StackPanel Spacing="6" Name="HdrProfileSelectorContainer">
-                                                <TextBlock Text="MONITOR PROFILE (EDID OVERRIDE)" Foreground="#8A92AD" FontSize="10" FontWeight="SemiBold"/>
-                                                <Border Background="#07070A" CornerRadius="6" BorderBrush="#1F222F" BorderThickness="1" Padding="2" Height="32">
-                                                    <Grid ColumnDefinitions="*,*">
-                                                        <Border Name="HdrProfile400Indicator" Grid.Column="0" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="True"/>
-                                                        <Border Name="HdrProfile1000Indicator" Grid.Column="1" Background="#141E30" BorderBrush="#2B88FF" BorderThickness="1" CornerRadius="4" IsVisible="False"/>
-                                                        
-                                                        <Button Grid.Column="0" Name="HdrProfile400Button" Classes="tab-btn active" Content="400 Nit OLED"/>
-                                                        <Button Grid.Column="1" Name="HdrProfile1000Button" Classes="tab-btn" Content="1000 Nit Peak"/>
-                                                    </Grid>
-                                                </Border>
-                                            </StackPanel>
                                         </StackPanel>
                                     </Expander>
                                 </StackPanel>
