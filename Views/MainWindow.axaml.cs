@@ -158,10 +158,16 @@ public partial class MainWindow : Window
     private IntPtr _previewMpvHandle = IntPtr.Zero;
     private string? _previewTempDir;
     private System.Threading.CancellationTokenSource? _previewCts;
+    private System.Threading.CancellationTokenSource? _hidePreviewCts;
+    private int _previewRequestId = 0;
+    private DateTime _lastDragSeekTime = DateTime.MinValue;
     private System.Threading.Timer? _debounceTimer;
     private double _hoveredSeekTime = -1;
+    private double _latestRequestedHoverTime = -1;
     private Control? _hudPanel;
     private Border? _seekPreviewCard;
+    private Panel? _audioModeOverlay;
+    private TextBlock? _audioModeTrackTitle;
 
     // Phase 3 state fields
     private System.Collections.ObjectModel.ObservableCollection<QueueItemViewModel> _playbackQueueItems = new();
@@ -569,6 +575,8 @@ public partial class MainWindow : Window
         _osdText           = FindInTree<TextBlock>(hudPanel, "OsdText");
         _seekPreviewCard   = FindInTree<Border>(hudPanel, "SeekPreviewCard");
         _idleLogoPanel     = FindInTree<Panel>(hudPanel, "IdleLogoPanel");
+        _audioModeOverlay  = FindInTree<Panel>(hudPanel, "AudioModeOverlay");
+        _audioModeTrackTitle = FindInTree<TextBlock>(hudPanel, "AudioModeTrackTitle");
         _videoTitleOverlay = FindInTree<Border>(hudPanel, "VideoTitleOverlay");
         _videoTitleText    = FindInTree<TextBlock>(hudPanel, "VideoTitleText");
 
@@ -650,6 +658,10 @@ public partial class MainWindow : Window
                 (object? sender, PointerPressedEventArgs e) =>
                 {
                     _isUserSeeking = true;
+                    e.Pointer.Capture(slider);
+                    slider.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
+                    this.Cursor = null;
+                    WakeTransportHUD(5000);
                     var point = e.GetCurrentPoint(slider);
                     if (point.Properties.IsLeftButtonPressed && slider.Bounds.Width > 0)
                     {
@@ -664,21 +676,26 @@ public partial class MainWindow : Window
 
             slider.AddHandler(
                 InputElement.PointerReleasedEvent,
-                (_, _) =>
+                (object? sender, PointerReleasedEventArgs e) =>
                 {
                     if (!_isUserSeeking) return;
                     _isUserSeeking = false;
+                    slider.Cursor = null;
+                    e.Pointer.Capture(null);
                     PerformSeekFromSlider(slider);
+                    WakeTransportHUD(3000);
                 },
                 RoutingStrategies.Tunnel);
 
             slider.AddHandler(
                 InputElement.PointerCaptureLostEvent,
-                (_, _) =>
+                (object? sender, PointerCaptureLostEventArgs e) =>
                 {
                     if (!_isUserSeeking) return;
                     _isUserSeeking = false;
+                    slider.Cursor = null;
                     PerformSeekFromSlider(slider);
+                    WakeTransportHUD(3000);
                 },
                 RoutingStrategies.Tunnel);
         }
@@ -945,25 +962,30 @@ public partial class MainWindow : Window
                     {
                         if (hasVideoTrack)
                         {
-                            Log($"[Media Safeguard] Audio track with embedded album art detected ({videoW}px width). Rendering cover art in sRGB SDR mode (bypassing HDR/peak scaling).");
+                            Log($"[Media Safeguard] Audio track with embedded album art detected ({videoW}px width). Rendering cover art across viewport.");
                             Dispatcher.UIThread.Post(() =>
                             {
                                 if (_idleLogoPanel != null) _idleLogoPanel.IsVisible = false;
+                                if (_audioModeOverlay != null) _audioModeOverlay.IsVisible = false;
                             });
-                            // Clear video filter for album art
-                            SetMpvPropertyString(_mpvHandle, "vf", "");
-                            // Bypass HDR/peak scaling and low-bitrate debanding filters for cover art
-                            continue;
                         }
                         else
                         {
-                            Log("[Media Safeguard] Audio-only track without cover art. Displaying audio canvas.");
+                            Log("[Media Safeguard] Audio-only track without cover art. Displaying minimal audio overlay.");
                             Dispatcher.UIThread.Post(() =>
                             {
-                                if (_idleLogoPanel != null) _idleLogoPanel.IsVisible = true;
+                                if (_idleLogoPanel != null) _idleLogoPanel.IsVisible = false;
+                                if (_audioModeOverlay != null) _audioModeOverlay.IsVisible = true;
+                                if (_audioModeTrackTitle != null && !string.IsNullOrEmpty(_currentLoadedFilePath))
+                                {
+                                    _audioModeTrackTitle.Text = Path.GetFileNameWithoutExtension(_currentLoadedFilePath);
+                                }
                             });
-                            continue;
                         }
+                        // Clear video filter for album art
+                        SetMpvPropertyString(_mpvHandle, "vf", "");
+                        // Bypass HDR/peak scaling and low-bitrate debanding filters for cover art
+                        continue;
                     }
 
                     // Clear video filter first
@@ -1056,6 +1078,7 @@ public partial class MainWindow : Window
             {
                 case "playback-time":
                 case "time-pos":
+                    if (_isUserSeeking) break;
                     if (!double.IsNaN(value) && !double.IsInfinity(value) && value >= 0)
                     {
                         int currentSecond = (int)Math.Floor(value);
@@ -1495,16 +1518,16 @@ public partial class MainWindow : Window
                     slider.Maximum = total;
             }
 
-            // Avoid updating slider position if user is seeking or if a seek was performed recently (within 500ms) to prevent rubber-banding
-            if (!_isUserSeeking && (DateTime.UtcNow - _lastSeekTime).TotalMilliseconds > 500)
+            // Avoid updating slider position if user is seeking or if a seek was performed recently (within 600ms) to prevent rubber-banding
+            if (!_isUserSeeking && (DateTime.UtcNow - _lastSeekTime).TotalMilliseconds > 600)
             {
                 foreach (var slider in _playbackSliders)
                     slider.Value = current;
-            }
 
-            string currentStr = TimeSpan.FromSeconds(current).ToString(@"hh\:mm\:ss");
-            foreach (var txt in _currentTimeTexts)
-                txt.Text = currentStr;
+                string currentStr = TimeSpan.FromSeconds(current).ToString(@"hh\:mm\:ss");
+                foreach (var txt in _currentTimeTexts)
+                    txt.Text = currentStr;
+            }
 
             double remaining = Math.Max(0, total - current);
             string durationDisplay;
@@ -1720,6 +1743,8 @@ public partial class MainWindow : Window
                 {
                     Dispatcher.UIThread.Post(() =>
                     {
+                        if (_isUserSeeking) return;
+
                         if (_transportBar != null)
                         {
                             _transportBar.Opacity = 0.0;
@@ -1802,6 +1827,18 @@ public partial class MainWindow : Window
         // Ensure vid=auto so libmpv can load embedded album art attachments or video streams
         SetMpvPropertyString(_mpvHandle, "vid", "auto");
 
+        if (isAudio)
+        {
+            // Force safe stereo device fallback for audio tracks
+            SetMpvPropertyString(_mpvHandle, "audio-spdif", "");
+            SetMpvPropertyString(_mpvHandle, "audio-channels", "stereo");
+        }
+        else
+        {
+            // Restore cinema video audio multi-channel profiles
+            ApplyAudioSettings();
+        }
+
         // Use the dispatcher to safely update UI components from our background process
         Dispatcher.UIThread.Post(() =>
         {
@@ -1832,8 +1869,9 @@ public partial class MainWindow : Window
                 }
             }
 
-            // Initially hide idle logo; MPV_EVENT_FILE_LOADED will show it if no embedded album art exists
+            // Initially hide overlays; MPV_EVENT_FILE_LOADED will toggle album art vs minimal audio overlay
             if (_idleLogoPanel != null) _idleLogoPanel.IsVisible = false;
+            if (!isAudio && _audioModeOverlay != null) _audioModeOverlay.IsVisible = false;
 
             if (_videoTitleText != null)
             {
@@ -1851,6 +1889,7 @@ public partial class MainWindow : Window
         });
 
         Log($"Sending loadfile command for: {filePath}");
+        CleanPreviewTempDir();
         SendCommand(_mpvHandle, "loadfile", filePath);
 
         if (_previewMpvHandle != IntPtr.Zero)
@@ -1880,6 +1919,32 @@ public partial class MainWindow : Window
         }
 
         if (!_isEngineInitialized || _mpvHandle == IntPtr.Zero) return;
+
+        // Hardware Media Keys Integration
+        if (e.Key == Key.MediaPlayPause)
+        {
+            e.Handled = true;
+            TogglePlayPause();
+            return;
+        }
+        if (e.Key == Key.MediaNextTrack)
+        {
+            e.Handled = true;
+            PlayNextInQueue();
+            return;
+        }
+        if (e.Key == Key.MediaPreviousTrack)
+        {
+            e.Handled = true;
+            PlayPreviousInQueue();
+            return;
+        }
+        if (e.Key == Key.MediaStop)
+        {
+            e.Handled = true;
+            StopPlayback();
+            return;
+        }
 
         // Ctrl+, Settings toggle shortcut
         if (e.Key == Key.OemComma && e.KeyModifiers.HasFlag(KeyModifiers.Control))
@@ -2298,6 +2363,7 @@ public partial class MainWindow : Window
             SetMpvOptionString(_previewMpvHandle, "osc", "no");
             SetMpvOptionString(_previewMpvHandle, "osd-level", "0");
             SetMpvOptionString(_previewMpvHandle, "embeddedfonts", "no");
+            SetMpvOptionString(_previewMpvHandle, "hr-seek", "no");
             SetMpvOptionString(_previewMpvHandle, "vf", "scale=240:-1");
             SetMpvOptionString(_previewMpvHandle, "pause", "yes");
 
@@ -2331,29 +2397,51 @@ public partial class MainWindow : Window
 
     private void OnSliderPointerEntered(object? sender, PointerEventArgs e)
     {
+        _hidePreviewCts?.Cancel();
+        _hidePreviewCts = null;
+
         if (_disableSeekingPreviews) return;
+        if (!string.IsNullOrEmpty(_currentLoadedFilePath) && IsAudioFile(Path.GetExtension(_currentLoadedFilePath)))
+        {
+            if (_seekPreviewCard != null) _seekPreviewCard.Opacity = 0.0;
+            return;
+        }
         var card = _seekPreviewCard;
         if (card != null) card.Opacity = 1.0;
     }
 
     private void OnSliderPointerExited(object? sender, PointerEventArgs e)
     {
-        var card = _seekPreviewCard;
-        if (card != null)
-        {
-            card.Opacity = 0.0;
-        }
-
         _debounceTimer?.Dispose();
         _debounceTimer = null;
 
-        var previewImage = _seekPreviewCard != null ? FindInTree<Image>(_seekPreviewCard, "PreviewImage") : null;
-        if (previewImage != null) previewImage.Source = null;
+        _hidePreviewCts?.Cancel();
+        _hidePreviewCts = new System.Threading.CancellationTokenSource();
+        var token = _hidePreviewCts.Token;
+
+        Task.Delay(150, token).ContinueWith(t =>
+        {
+            if (!t.IsCanceled && !token.IsCancellationRequested)
+            {
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (_seekPreviewCard != null && !_isUserSeeking)
+                    {
+                        _seekPreviewCard.Opacity = 0.0;
+                    }
+                });
+            }
+        }, TaskContinuationOptions.None);
     }
 
     private void OnSliderPointerMoved(object? sender, PointerEventArgs e)
     {
         if (_disableSeekingPreviews) return;
+        if (!string.IsNullOrEmpty(_currentLoadedFilePath) && IsAudioFile(Path.GetExtension(_currentLoadedFilePath)))
+        {
+            if (_seekPreviewCard != null) _seekPreviewCard.Opacity = 0.0;
+            return;
+        }
         if (sender is not Slider slider || _playbackDuration <= 0) return;
 
         var point = e.GetCurrentPoint(slider);
@@ -2364,6 +2452,38 @@ public partial class MainWindow : Window
         double ratio = mouseX / sliderWidth;
         ratio = Math.Max(0, Math.Min(1, ratio));
         _hoveredSeekTime = ratio * _playbackDuration;
+
+        // Perform continuous live seeking while user is actively dragging the slider
+        if (_isUserSeeking)
+        {
+            this.Cursor = null;
+            slider.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
+            WakeTransportHUD(5000);
+
+            if (_seekPreviewCard != null)
+            {
+                _seekPreviewCard.Opacity = 1.0;
+            }
+
+            double newValue = slider.Minimum + ratio * (slider.Maximum - slider.Minimum);
+            foreach (var s in _playbackSliders)
+            {
+                s.Value = newValue;
+            }
+
+            string dragTimeStr = TimeSpan.FromSeconds(newValue).ToString(@"hh\:mm\:ss");
+            foreach (var txt in _currentTimeTexts)
+            {
+                txt.Text = dragTimeStr;
+            }
+
+            // Throttle physical seek P/Invoke commands to libmpv every 40ms to prevent native decoder queue congestion
+            if ((DateTime.UtcNow - _lastDragSeekTime).TotalMilliseconds >= 40)
+            {
+                _lastDragSeekTime = DateTime.UtcNow;
+                PerformSeekFromSlider(slider);
+            }
+        }
 
         var timeText = _seekPreviewCard != null ? FindInTree<TextBlock>(_seekPreviewCard, "PreviewTimeText") : null;
         if (timeText != null)
@@ -2380,7 +2500,6 @@ public partial class MainWindow : Window
         if (_hudPanel != null && _seekPreviewCard != null)
         {
             var relativePoint = slider.TranslatePoint(new Point(mouseX, 0), _hudPanel);
-            Log($"OnSliderPointerMoved: mouseX={mouseX:F2}, sliderWidth={sliderWidth:F2}, ratio={ratio:F3}, relativePoint={relativePoint}, hudPanelBounds={_hudPanel.Bounds.Width:F2}x{_hudPanel.Bounds.Height:F2}");
             
             double left = 0;
             if (relativePoint.HasValue)
@@ -2418,101 +2537,151 @@ public partial class MainWindow : Window
             _seekPreviewCard.RenderTransform = new TranslateTransform(left, 0);
         }
 
-        _debounceTimer?.Dispose();
-        double targetTime = _hoveredSeekTime;
-        _debounceTimer = new System.Threading.Timer(_ =>
+        _latestRequestedHoverTime = _hoveredSeekTime;
+        int currentReqId = ++_previewRequestId;
+
+        // Synchronously cancel previous extraction task on UI thread before scheduling
+        _previewCts?.Cancel();
+
+        // Suppress background thumbnail extraction while actively dragging live
+        if (!_isUserSeeking)
         {
-            Task.Run(() => ExtractPreviewFrameAsync(targetTime));
-        }, null, 75, System.Threading.Timeout.Infinite);
+            _previewCts = new System.Threading.CancellationTokenSource();
+            var token = _previewCts.Token;
+
+            _debounceTimer?.Dispose();
+            double targetTime = _hoveredSeekTime;
+            _debounceTimer = new System.Threading.Timer(_ =>
+            {
+                Task.Run(() => ExtractPreviewFrameAsync(targetTime, currentReqId, token));
+            }, null, 75, System.Threading.Timeout.Infinite);
+        }
     }
 
-    private async Task ExtractPreviewFrameAsync(double timeSeconds)
+    private void CleanPreviewTempDir()
     {
-        if (_previewMpvHandle == IntPtr.Zero) return;
-
-        _previewCts?.Cancel();
-        _previewCts = new System.Threading.CancellationTokenSource();
-        var token = _previewCts.Token;
-
         try
         {
-            // 1. Clear any existing preview frames in preview_temp
-            if (Directory.Exists(_previewTempDir))
+            if (!string.IsNullOrEmpty(_previewTempDir) && Directory.Exists(_previewTempDir))
             {
                 foreach (var file in Directory.GetFiles(_previewTempDir, "*.jpg"))
                 {
                     try { File.Delete(file); } catch { }
                 }
             }
+        }
+        catch (Exception ex)
+        {
+            Log($"CleanPreviewTempDir error: {ex.Message}");
+        }
+    }
 
-            // 2. Perform seek to generate the frame
-            Log($"ExtractPreviewFrameAsync: Seeking preview engine to {timeSeconds:F3}s...");
+    private async Task ExtractPreviewFrameAsync(double timeSeconds, int requestId, CancellationToken token)
+    {
+        if (_previewMpvHandle == IntPtr.Zero || token.IsCancellationRequested || requestId != _previewRequestId) return;
+        if (Math.Abs(timeSeconds - _latestRequestedHoverTime) > 0.01) return;
+
+        string currentFile = Path.GetFileName(_currentLoadedFilePath ?? "Unknown");
+        Log($"[Preview Telemetry] Frame extraction initiated #{requestId} | Target: {timeSeconds:F3}s | File: '{currentFile}'");
+
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+        try
+        {
+            if (string.IsNullOrEmpty(_previewTempDir)) return;
+            string targetPath = Path.Combine(_previewTempDir, $"preview_frame_{requestId}.jpg");
+
+            if (token.IsCancellationRequested || requestId != _previewRequestId || Math.Abs(timeSeconds - _latestRequestedHoverTime) > 0.01) return;
+
+            // 1. Perform seek and direct screenshot to explicit unique filename
             SendCommand(_previewMpvHandle, "seek", timeSeconds.ToString("F3", System.Globalization.CultureInfo.InvariantCulture), "absolute");
+            SendCommand(_previewMpvHandle, "screenshot-to-file", targetPath, "video");
 
-            // 3. Wait for the new jpg file to appear
+            // 2. Poll explicitly for targetPath to appear without directory scanning
             string? imgPath = null;
-            int elapsed = 0;
-            while (elapsed < 350) // wait up to 350ms
+            while (stopwatch.ElapsedMilliseconds < 650)
             {
-                if (token.IsCancellationRequested) return;
-
-                if (Directory.Exists(_previewTempDir))
+                if (token.IsCancellationRequested || requestId != _previewRequestId || Math.Abs(timeSeconds - _latestRequestedHoverTime) > 0.01)
                 {
-                    var files = Directory.GetFiles(_previewTempDir, "*.jpg");
-                    if (files.Length > 0)
-                    {
-                        imgPath = files.OrderBy(f => f).Last(); // Get the latest file
-                        break;
-                    }
+                    if (File.Exists(targetPath)) try { File.Delete(targetPath); } catch { }
+                    return;
                 }
-                await Task.Delay(15, token);
-                elapsed += 15;
-            }
 
-            if (imgPath != null && File.Exists(imgPath) && !token.IsCancellationRequested)
-            {
-                Log($"ExtractPreviewFrameAsync: Found frame image at '{imgPath}' after {elapsed}ms");
-                
-                // Read with retry loop to handle file write locks cleanly
-                Avalonia.Media.Imaging.Bitmap? bitmap = null;
-                int retries = 0;
-                while (retries < 5 && bitmap == null && !token.IsCancellationRequested)
+                if (File.Exists(targetPath))
                 {
                     try
                     {
-                        using (var stream = new FileStream(imgPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                        var fi = new FileInfo(targetPath);
+                        if (fi.Length > 0)
                         {
-                            bitmap = new Avalonia.Media.Imaging.Bitmap(stream);
+                            imgPath = targetPath;
+                            break;
                         }
                     }
-                    catch (IOException)
-                    {
-                        await Task.Delay(15, token);
-                        retries++;
-                    }
+                    catch { }
                 }
+                await Task.Delay(15, token);
+            }
 
-                if (bitmap != null && !token.IsCancellationRequested)
+            if (imgPath == null || !File.Exists(imgPath))
+            {
+                if (!token.IsCancellationRequested && requestId == _previewRequestId && Math.Abs(timeSeconds - _latestRequestedHoverTime) <= 0.01)
                 {
-                    Dispatcher.UIThread.Post(() =>
-                    {
-                        var previewImage = _seekPreviewCard != null ? FindInTree<Image>(_seekPreviewCard, "PreviewImage") : null;
-                        if (previewImage != null)
-                        {
-                            previewImage.Source = bitmap;
-                        }
-                    });
+                    Log($"[Preview Timeout] libmpv failed to output frame #{requestId} within 650ms at timestamp {timeSeconds:F3}s. (Elapsed: {stopwatch.ElapsedMilliseconds}ms)");
                 }
+                return;
+            }
+
+            if (token.IsCancellationRequested || requestId != _previewRequestId || Math.Abs(timeSeconds - _latestRequestedHoverTime) > 0.01)
+            {
+                if (File.Exists(targetPath)) try { File.Delete(targetPath); } catch { }
+                return;
+            }
+
+            // 3. Read with retry loop to handle file write locks cleanly
+            Avalonia.Media.Imaging.Bitmap? bitmap = null;
+            int retries = 0;
+            while (retries < 5 && bitmap == null && !token.IsCancellationRequested && requestId == _previewRequestId && Math.Abs(timeSeconds - _latestRequestedHoverTime) <= 0.01)
+            {
+                try
+                {
+                    using (var stream = new FileStream(imgPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                    {
+                        bitmap = new Avalonia.Media.Imaging.Bitmap(stream);
+                    }
+                }
+                catch (IOException ioEx)
+                {
+                    Log($"[Preview Lock Retry {retries + 1}/5] File locked reading '{Path.GetFileName(imgPath)}': {ioEx.Message}");
+                    await Task.Delay(15, token);
+                    retries++;
+                }
+            }
+
+            stopwatch.Stop();
+
+            if (bitmap != null && !token.IsCancellationRequested && requestId == _previewRequestId && Math.Abs(timeSeconds - _latestRequestedHoverTime) <= 0.01)
+            {
+                Log($"[Preview Telemetry] Frame #{requestId} generated successfully in {stopwatch.ElapsedMilliseconds}ms | Target: {timeSeconds:F3}s");
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (token.IsCancellationRequested || requestId != _previewRequestId) return;
+                    var previewImage = _seekPreviewCard != null ? FindInTree<Image>(_seekPreviewCard, "PreviewImage") : null;
+                    if (previewImage != null)
+                    {
+                        previewImage.Source = bitmap;
+                        UpdatePreviewContainerAspect();
+                    }
+                });
             }
             else
             {
-                Log($"ExtractPreviewFrameAsync: Frame image not found or timed out after {elapsed}ms");
+                if (File.Exists(targetPath)) try { File.Delete(targetPath); } catch { }
             }
         }
-        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            Log($"Preview extraction error: {ex.Message}");
+            Log($"[Preview Exception] Error extracting frame at {timeSeconds:F3}s: {ex.Message}");
         }
     }
 
@@ -3518,6 +3687,29 @@ public partial class MainWindow : Window
                 }
             }
         });
+    }
+
+    private void PlayPreviousInQueue()
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_playbackQueueItems.Count > 0 && _currentQueueIndex > 0)
+            {
+                PlayQueueItem(_currentQueueIndex - 1);
+            }
+            else if (_playbackQueueItems.Count > 0)
+            {
+                PlayQueueItem(0);
+            }
+        });
+    }
+
+    private void StopPlayback()
+    {
+        if (_mpvHandle != IntPtr.Zero && _isEngineInitialized)
+        {
+            SendCommand(_mpvHandle, "stop");
+        }
     }
 
     private void ToggleStatsOverlay(bool sticky = false)

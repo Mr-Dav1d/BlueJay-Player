@@ -50,6 +50,24 @@
                                    Stretch="Uniform"/>
                         </Panel>
 
+                        <!-- Minimal Ambient Audio Mode Overlay Canvas (Shown when no cover art exists) -->
+                        <Panel Name="AudioModeOverlay" Background="#0C0C12" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" IsVisible="False" IsHitTestVisible="False">
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16">
+                                <Border Width="100" Height="100" CornerRadius="50" Background="#0D1626" BorderBrush="#00D2FF" BorderThickness="2" HorizontalAlignment="Center">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="24" Opacity="0.5" Color="#00D2FF" OffsetX="0" OffsetY="0"/>
+                                    </Border.Effect>
+                                    <PathIcon Data="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" Width="40" Height="40" Foreground="#00D2FF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <StackPanel Spacing="6" HorizontalAlignment="Center">
+                                    <TextBlock Name="AudioModeTrackTitle" Text="Audio Track Playing" Foreground="#F0F4FC" FontSize="18" FontWeight="Bold" FontFamily="Segoe UI" HorizontalAlignment="Center" TextAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="450"/>
+                                    <Border Background="#162B42" CornerRadius="4" Padding="8,3" HorizontalAlignment="Center">
+                                        <TextBlock Text="STEREO HI-FI AUDIO MODE" Foreground="#00D2FF" FontSize="10" FontWeight="Bold" LetterSpacing="1.2"/>
+                                    </Border>
+                                </StackPanel>
+                            </StackPanel>
+                        </Panel>
+
                         <!-- Premium Cinematic Dynamic Title Overlay Block -->
                         <Border Name="VideoTitleOverlay"
                                 VerticalAlignment="Top"
