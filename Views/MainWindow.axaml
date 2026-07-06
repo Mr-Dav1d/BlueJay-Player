@@ -437,29 +437,35 @@
                         </Grid>
 
                         <!-- Directory Panel -->
-                        <Grid Name="DirectoryPanel" RowDefinitions="Auto,*,Auto" IsVisible="False">
-                            <!-- Breadcrumb & Up Button Header with Sort Criteria -->
+                        <Grid Name="DirectoryPanel" RowDefinitions="Auto,*" IsVisible="False">
+                            <!-- Segmented Breadcrumb & Up Button Header with Sort Criteria & View Toggle -->
                             <Grid Grid.Row="0" RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
-                                <TextBox Grid.Row="0" Grid.Column="0" Name="BreadcrumbText" Text="Current Folder" Foreground="#8A92AD" FontSize="10" FontFamily="Consolas" VerticalAlignment="Center"
-                                         Background="#0A0A10" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="4" Padding="6,3"
-                                         CaretBrush="#5B8DEF" SelectionBrush="#5B8DEF" SelectionForegroundBrush="#FFFFFF"/>
+                                <!-- Scrollable Segmented Breadcrumb Capsules -->
+                                <ScrollViewer Grid.Row="0" Grid.Column="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Margin="0,0,8,0">
+                                    <StackPanel Name="BreadcrumbContainer" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"/>
+                                </ScrollViewer>
                                 <Button Grid.Row="0" Grid.Column="1" Name="UpDirectoryButton" Classes="page-btn" Content="⬆ Up" FontSize="10"/>
                                 
                                 <Grid Grid.Row="1" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto" Margin="0,6,0,0">
                                     <TextBlock Grid.Column="0" Text="SORT BY" Foreground="#5C647C" FontSize="9" FontWeight="Bold" VerticalAlignment="Center" LetterSpacing="0.8"/>
-                                    <ComboBox Grid.Column="1" Name="DirectorySortComboBox" SelectedIndex="0" FontSize="10" Height="26" Padding="8,4" Width="180"
-                                              Background="#0A0A10" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="4" Foreground="#C5CEE3" HorizontalAlignment="Right">
-                                        <ComboBoxItem Content="Name (Ascending)"/>
-                                        <ComboBoxItem Content="Name (Descending)"/>
-                                        <ComboBoxItem Content="Date Modified (Newest)"/>
-                                        <ComboBoxItem Content="Date Modified (Oldest)"/>
-                                        <ComboBoxItem Content="Size (Largest)"/>
-                                        <ComboBoxItem Content="Size (Smallest)"/>
-                                    </ComboBox>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                                        <ComboBox Name="DirectorySortComboBox" SelectedIndex="0" FontSize="10" Height="26" Padding="8,4" Width="170"
+                                                  Background="#0A0A10" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="4" Foreground="#C5CEE3">
+                                            <ComboBoxItem Content="Name (Ascending)"/>
+                                            <ComboBoxItem Content="Name (Descending)"/>
+                                            <ComboBoxItem Content="Date Modified (Newest)"/>
+                                            <ComboBoxItem Content="Date Modified (Oldest)"/>
+                                            <ComboBoxItem Content="Size (Largest)"/>
+                                            <ComboBoxItem Content="Size (Smallest)"/>
+                                        </ComboBox>
+                                        <Button Name="ViewModeToggleButton" Classes="page-btn" Width="32" Height="26" ToolTip.Tip="Toggle Grid / List Layout">
+                                            <TextBlock Name="ViewModeToggleIcon" Text="⊞" FontSize="12" FontWeight="Bold" Foreground="#2B88FF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Button>
+                                    </StackPanel>
                                 </Grid>
                             </Grid>
 
-                            <!-- Directory Files List -->
+                            <!-- Directory Files List / Grid Matrix -->
                             <ListBox Grid.Row="1" Name="DirectoryListBox" Background="Transparent" BorderThickness="0" Margin="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                                 <ListBox.ItemsPanel>
                                     <ItemsPanelTemplate>
@@ -468,76 +474,98 @@
                                 </ListBox.ItemsPanel>
                                 <ListBox.ItemTemplate>
                                     <DataTemplate x:DataType="views:MediaItemViewModel">
-                                        <Grid ColumnDefinitions="Auto,*,Auto" Height="50" Margin="0,2">
-                                            <!-- Thumbnail, Folder Icon, or Audio Badge -->
-                                            <Border Grid.Column="0" Width="80" Height="45" Background="#09090D" CornerRadius="4" BorderBrush="#1F222F" BorderThickness="0.5" ClipToBounds="True">
-                                                <Panel>
-                                                    <!-- Folder Icon (if directory) -->
-                                                    <PathIcon Data="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z" Width="20" Height="20" Foreground="#2B88FF" IsVisible="{Binding IsDirectory}"/>
-                                                    
-                                                    <!-- Audio Card Badge (if audio file) -->
-                                                    <Border Background="#0D1626" IsVisible="{Binding IsAudio}" VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
-                                                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="2">
-                                                            <PathIcon Data="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" Width="16" Height="16" Foreground="#00D2FF"/>
-                                                            <Border Background="#162B42" CornerRadius="3" Padding="4,1">
-                                                                <TextBlock Text="AUDIO" Foreground="#00D2FF" FontSize="8" FontWeight="Bold" LetterSpacing="0.5"/>
-                                                            </Border>
-                                                        </StackPanel>
-                                                    </Border>
+                                        <Panel>
+                                            <!-- LIST VIEW ROW (Height="50") -->
+                                            <Grid ColumnDefinitions="Auto,*,Auto" Height="50" Margin="0,2" IsVisible="{Binding !IsGridView}">
+                                                <!-- Thumbnail, Folder Icon, or Audio Badge -->
+                                                <Border Grid.Column="0" Width="80" Height="45" Background="#09090D" CornerRadius="4" BorderBrush="#1F222F" BorderThickness="0.5" ClipToBounds="True">
+                                                    <Panel>
+                                                        <!-- Folder Icon (if directory) -->
+                                                        <PathIcon Data="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z" Width="20" Height="20" Foreground="#2B88FF" IsVisible="{Binding IsDirectory}"/>
+                                                        
+                                                        <!-- Audio Card Badge (if audio file) -->
+                                                        <Border Background="#0D1626" IsVisible="{Binding IsAudio}" VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
+                                                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="2">
+                                                                <PathIcon Data="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" Width="16" Height="16" Foreground="#00D2FF"/>
+                                                                <Border Background="#162B42" CornerRadius="3" Padding="4,1">
+                                                                    <TextBlock Text="AUDIO" Foreground="#00D2FF" FontSize="8" FontWeight="Bold" LetterSpacing="0.5"/>
+                                                                </Border>
+                                                            </StackPanel>
+                                                        </Border>
 
-                                                    <!-- Video Thumbnail (if video file) -->
-                                                    <Panel IsVisible="{Binding IsVideo}">
-                                                        <!-- Pulsing placeholder border when thumbnail is not loaded -->
-                                                        <Border Background="#14141A" Classes="pulse" IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNull}}"/>
-                                                        <!-- Loaded image -->
-                                                        <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                                        <!-- Video Thumbnail (if video file) -->
+                                                        <Panel IsVisible="{Binding IsVideo}">
+                                                            <!-- Pulsing placeholder border when thumbnail is not loaded -->
+                                                            <Border Background="#14141A" Classes="pulse" IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNull}}"/>
+                                                            <!-- Loaded image -->
+                                                            <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                                        </Panel>
                                                     </Panel>
-                                                </Panel>
-                                            </Border>
+                                                </Border>
 
-                                            <!-- Metadata details -->
-                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0,0,0">
-                                                <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Disabled"
-                                                              PointerEntered="OnDirectoryItemPointerEntered" PointerExited="OnDirectoryItemPointerExited"
-                                                              DetachedFromVisualTree="OnDirectoryItemDetached">
-                                                    <TextBlock Text="{Binding Name}" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"/>
-                                                </ScrollViewer>
-                                                <!-- Metadata size / duration for files, or <Folder> for folders -->
-                                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                                    <TextBlock Text="Folder" Foreground="#5C647C" FontSize="10" FontFamily="Consolas" IsVisible="{Binding IsDirectory}"/>
-                                                    <TextBlock Text="{Binding SizeText}" Foreground="#5C647C" FontSize="10" FontFamily="Consolas" IsVisible="{Binding !IsDirectory}"/>
-                                                    <TextBlock Text="•" Foreground="#1F222F" FontSize="10" IsVisible="{Binding !IsDirectory}"/>
-                                                    <TextBlock Text="{Binding DurationText}" Foreground="#00D2FF" FontSize="10" FontFamily="Consolas" FontWeight="SemiBold" IsVisible="{Binding IsAudio}"/>
-                                                    <TextBlock Text="{Binding DurationText}" Foreground="#5C647C" FontSize="10" FontFamily="Consolas" IsVisible="{Binding IsVideo}"/>
+                                                <!-- Metadata details -->
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0,0,0">
+                                                    <TextBlock Text="{Binding Name}" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" ToolTip.Tip="{Binding Name}"/>
+                                                    <!-- Metadata size / duration for files, or <Folder> for folders -->
+                                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                                        <TextBlock Text="Folder" Foreground="#5C647C" FontSize="10" FontFamily="Consolas" IsVisible="{Binding IsDirectory}"/>
+                                                        <TextBlock Text="{Binding SizeText}" Foreground="#5C647C" FontSize="10" FontFamily="Consolas" IsVisible="{Binding !IsDirectory}"/>
+                                                        <TextBlock Text="•" Foreground="#1F222F" FontSize="10" IsVisible="{Binding !IsDirectory}"/>
+                                                        <TextBlock Text="{Binding DurationText}" Foreground="#00D2FF" FontSize="10" FontFamily="Consolas" FontWeight="SemiBold" IsVisible="{Binding IsAudio}"/>
+                                                        <TextBlock Text="{Binding DurationText}" Foreground="#5C647C" FontSize="10" FontFamily="Consolas" IsVisible="{Binding IsVideo}"/>
+                                                    </StackPanel>
                                                 </StackPanel>
-                                            </StackPanel>
 
-                                            <!-- Row Hover Action Buttons -->
-                                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Classes="row-actions">
-                                                <Button Name="PlayActionButton" Classes="action-btn" ToolTip.Tip="Play Immediately" IsVisible="{Binding !IsDirectory}">
-                                                    <PathIcon Data="M8 5v14l11-7z" Width="10" Height="10"/>
-                                                </Button>
-                                                <Button Name="EnqueueActionButton" Classes="action-btn" ToolTip.Tip="Add to Queue" IsVisible="{Binding !IsDirectory}">
-                                                    <PathIcon Data="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" Width="10" Height="10"/>
-                                                </Button>
-                                            </StackPanel>
-                                        </Grid>
+                                                <!-- Row Hover Action Buttons -->
+                                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Classes="row-actions">
+                                                    <Button Name="PlayActionButton" Classes="action-btn" ToolTip.Tip="Play Immediately" IsVisible="{Binding !IsDirectory}">
+                                                        <PathIcon Data="M8 5v14l11-7z" Width="10" Height="10"/>
+                                                    </Button>
+                                                    <Button Name="EnqueueActionButton" Classes="action-btn" ToolTip.Tip="Add to Queue" IsVisible="{Binding !IsDirectory}">
+                                                        <PathIcon Data="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" Width="10" Height="10"/>
+                                                    </Button>
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <!-- GRID VIEW CARD MATRIX (Width="160", Height="140") -->
+                                            <Border Width="160" Height="140" Margin="4" Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="6" ClipToBounds="True" IsVisible="{Binding IsGridView}">
+                                                <Grid RowDefinitions="90,*">
+                                                    <!-- Top 16:9 Thumbnail / Folder Header -->
+                                                    <Panel Grid.Row="0" Background="#0C0C12">
+                                                        <PathIcon Data="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z" Width="32" Height="32" Foreground="#2B88FF" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsDirectory}"/>
+                                                        
+                                                        <Border Background="#0D1626" IsVisible="{Binding IsAudio}" VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
+                                                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="4">
+                                                                <PathIcon Data="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" Width="22" Height="22" Foreground="#00D2FF"/>
+                                                                <Border Background="#162B42" CornerRadius="3" Padding="6,2">
+                                                                    <TextBlock Text="AUDIO" Foreground="#00D2FF" FontSize="8" FontWeight="Bold" LetterSpacing="0.8"/>
+                                                                </Border>
+                                                            </StackPanel>
+                                                        </Border>
+
+                                                        <Panel IsVisible="{Binding IsVideo}">
+                                                            <Border Background="#14141A" Classes="pulse" IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNull}}"/>
+                                                            <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                                        </Panel>
+
+                                                        <!-- Floating Duration Pill (Bottom-Right of Thumbnail) -->
+                                                        <Border IsVisible="{Binding !IsDirectory}" Background="#CC000000" CornerRadius="3" Padding="4,1" Margin="6" HorizontalAlignment="Right" VerticalAlignment="Bottom">
+                                                            <TextBlock Text="{Binding DurationText}" Foreground="#C5CEE3" FontSize="9" FontFamily="Consolas" FontWeight="SemiBold"/>
+                                                        </Border>
+                                                    </Panel>
+
+                                                    <!-- Bottom Card Title & Size -->
+                                                    <StackPanel Grid.Row="1" Margin="8,6" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Name}" Foreground="#C5CEE3" FontSize="10" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" ToolTip.Tip="{Binding Name}" HorizontalAlignment="Center"/>
+                                                        <TextBlock Text="Folder" Foreground="#5C647C" FontSize="9" FontFamily="Consolas" HorizontalAlignment="Center" IsVisible="{Binding IsDirectory}"/>
+                                                        <TextBlock Text="{Binding SizeText}" Foreground="#5C647C" FontSize="9" FontFamily="Consolas" HorizontalAlignment="Center" IsVisible="{Binding !IsDirectory}"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </Panel>
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>
-
-                            <!-- Bottom Pagination Control Bar -->
-                            <Border Grid.Row="2" Background="Transparent" BorderBrush="#14141A" BorderThickness="0,1,0,0" Padding="0,12,0,0" Margin="0,4,0,0">
-                                <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
-                                    <Button Grid.Column="0" Name="PrevPageButton" Classes="action-btn" ToolTip.Tip="Previous Page" Width="28" Height="28">
-                                        <PathIcon Data="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" Width="10" Height="10"/>
-                                    </Button>
-                                    <TextBlock Grid.Column="1" Name="PageNumberText" Text="Page 1 / 1" FontFamily="Consolas" FontSize="10" FontWeight="SemiBold" Foreground="#C5CEE3" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    <Button Grid.Column="2" Name="NextPageButton" Classes="action-btn" ToolTip.Tip="Next Page" Width="28" Height="28">
-                                        <PathIcon Data="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" Width="10" Height="10"/>
-                                    </Button>
-                                </Grid>
-                            </Border>
                         </Grid>
 
                         <!-- Engine Panel -->

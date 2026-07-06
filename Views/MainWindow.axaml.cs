@@ -168,10 +168,7 @@ public partial class MainWindow : Window
     private System.Collections.ObjectModel.ObservableCollection<MediaItemViewModel> _directoryItems = new();
     private System.Collections.Generic.List<FileSystemInfo> _allEntries = new();
     private string _currentDirectoryPath = "";
-    private int _currentPageIndex = 1;
-    private int _totalPageCount = 1;
     private string _activeTab = "Queue";
-    private const int ItemsPerPage = 10;
     private System.Threading.CancellationTokenSource? _lazyLoadCts;
 
     // Phase 3 Control References
@@ -184,14 +181,14 @@ public partial class MainWindow : Window
     private Panel? _directoryPanel;
     private ListBox? _queueListBox;
     private StackPanel? _queuePlaceholderText;
-    private TextBox? _breadcrumbText;
+    private StackPanel? _breadcrumbContainer;
     private Button? _upDirectoryButton;
     private ListBox? _directoryListBox;
     private ComboBox? _directorySortComboBox;
     private int _directorySortMode = 0;
-    private Button? _prevPageButton;
-    private TextBlock? _pageNumberText;
-    private Button? _nextPageButton;
+    private Button? _viewModeToggleButton;
+    private TextBlock? _viewModeToggleIcon;
+    private bool _isGridView = false;
     private Button[] _sidePanelButtons = Array.Empty<Button>();
 
     // Video Engine Matrix UI References
@@ -368,13 +365,12 @@ public partial class MainWindow : Window
         _directoryPanel = this.FindControl<Panel>("DirectoryPanel");
         _queueListBox = this.FindControl<ListBox>("QueueListBox");
         _queuePlaceholderText = this.FindControl<StackPanel>("QueuePlaceholderText");
-        _breadcrumbText = this.FindControl<TextBox>("BreadcrumbText");
+        _breadcrumbContainer = this.FindControl<StackPanel>("BreadcrumbContainer");
         _upDirectoryButton = this.FindControl<Button>("UpDirectoryButton");
         _directoryListBox = this.FindControl<ListBox>("DirectoryListBox");
         _directorySortComboBox = this.FindControl<ComboBox>("DirectorySortComboBox");
-        _prevPageButton = this.FindControl<Button>("PrevPageButton");
-        _pageNumberText = this.FindControl<TextBlock>("PageNumberText");
-        _nextPageButton = this.FindControl<Button>("NextPageButton");
+        _viewModeToggleButton = this.FindControl<Button>("ViewModeToggleButton");
+        _viewModeToggleIcon = this.FindControl<TextBlock>("ViewModeToggleIcon");
         
         _engineTabButton = this.FindControl<Button>("EngineTabButton");
         _engineTabIndicator = this.FindControl<Border>("EngineTabIndicator");
@@ -2581,8 +2577,7 @@ public partial class MainWindow : Window
         if (_directoryTabButton != null) _directoryTabButton.Click += (s, e) => SwitchTab("Directory");
         if (_engineTabButton != null) _engineTabButton.Click += (s, e) => SwitchTab("Engine");
         if (_upDirectoryButton != null) _upDirectoryButton.Click += (s, e) => NavigateUpDirectory();
-        if (_prevPageButton != null) _prevPageButton.Click += (s, e) => NavigatePage(-1);
-        if (_nextPageButton != null) _nextPageButton.Click += (s, e) => NavigatePage(1);
+        if (_viewModeToggleButton != null) _viewModeToggleButton.Click += (s, e) => ToggleViewMode();
 
         if (_directorySortComboBox != null)
         {
@@ -2687,38 +2682,7 @@ public partial class MainWindow : Window
             clearQueueBtn.Click += (s, e) => ClearQueue();
         }
 
-        // Allow typing a directory path and pressing Enter, with formatting focus locks
-        if (_breadcrumbText != null)
-        {
-            _breadcrumbText.GotFocus += (s, e) =>
-            {
-                _breadcrumbText.Text = _currentDirectoryPath;
-            };
 
-            _breadcrumbText.LostFocus += (s, e) =>
-            {
-                _breadcrumbText.Text = FormatBreadcrumbPath(_currentDirectoryPath);
-            };
-
-            _breadcrumbText.KeyDown += (s, e) =>
-            {
-                if (e.Key == Key.Return)
-                {
-                    string? typed = _breadcrumbText.Text?.Trim();
-                    if (!string.IsNullOrEmpty(typed) && Directory.Exists(typed))
-                    {
-                        LoadDirectory(typed);
-                        this.Focus();
-                    }
-                    else
-                    {
-                        _breadcrumbText.Text = FormatBreadcrumbPath(_currentDirectoryPath);
-                        this.Focus();
-                    }
-                    e.Handled = true;
-                }
-            };
-        }
 
         if (_queuePanel != null)
         {
@@ -2810,11 +2774,87 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ToggleViewMode()
+    {
+        _isGridView = !_isGridView;
+        if (_viewModeToggleIcon != null)
+        {
+            _viewModeToggleIcon.Text = _isGridView ? "☰" : "⊞";
+        }
+        if (_directoryListBox != null)
+        {
+            if (_isGridView)
+            {
+                _directoryListBox.ItemsPanel = new Avalonia.Controls.Templates.FuncTemplate<Avalonia.Controls.Panel?>(() => new Avalonia.Controls.WrapPanel { Orientation = Avalonia.Layout.Orientation.Horizontal });
+            }
+            else
+            {
+                _directoryListBox.ItemsPanel = new Avalonia.Controls.Templates.FuncTemplate<Avalonia.Controls.Panel?>(() => new Avalonia.Controls.VirtualizingStackPanel());
+            }
+        }
+        foreach (var item in _directoryItems)
+        {
+            item.IsGridView = _isGridView;
+        }
+    }
+
+    private void RenderBreadcrumbs(string path)
+    {
+        if (_breadcrumbContainer == null) return;
+        _breadcrumbContainer.Children.Clear();
+        if (string.IsNullOrEmpty(path)) return;
+
+        try
+        {
+            var dir = new DirectoryInfo(path);
+            var segments = new System.Collections.Generic.List<(string Name, string FullPath)>();
+            var current = dir;
+            while (current != null)
+            {
+                segments.Insert(0, (string.IsNullOrEmpty(current.Name) ? current.FullName : current.Name, current.FullName));
+                current = current.Parent;
+            }
+
+            for (int i = 0; i < segments.Count; i++)
+            {
+                var seg = segments[i];
+                string segPath = seg.FullPath;
+
+                var btn = new Button
+                {
+                    Content = seg.Name,
+                    Classes = { "page-btn" },
+                    FontSize = 10,
+                    Padding = new Avalonia.Thickness(6, 3),
+                    CornerRadius = new Avalonia.CornerRadius(4)
+                };
+                btn.Click += (s, e) => LoadDirectory(segPath);
+                _breadcrumbContainer.Children.Add(btn);
+
+                if (i < segments.Count - 1)
+                {
+                    var sep = new TextBlock
+                    {
+                        Text = "/",
+                        Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#5C647C")),
+                        FontSize = 10,
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                        Margin = new Avalonia.Thickness(2, 0)
+                    };
+                    _breadcrumbContainer.Children.Add(sep);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log($"Error rendering breadcrumbs: {ex.Message}");
+        }
+    }
+
     private void LoadDirectory(string path)
     {
         if (!Directory.Exists(path)) return;
         _currentDirectoryPath = path;
-        _currentPageIndex = 1;
 
         try
         {
@@ -2867,72 +2907,38 @@ public partial class MainWindow : Window
             }
 
             _allEntries = sortedFolders.Concat(sortedFiles).ToList();
-            _totalPageCount = (int)Math.Ceiling((double)_allEntries.Count / ItemsPerPage);
-            if (_totalPageCount == 0) _totalPageCount = 1;
 
-            RenderCurrentPage();
+            _directoryItems.Clear();
+            foreach (var entry in _allEntries)
+            {
+                bool isDir = (entry.Attributes & FileAttributes.Directory) != 0;
+                bool isAudio = !isDir && IsAudioFile(entry.Extension);
+                var item = new MediaItemViewModel
+                {
+                    Name = entry.Name,
+                    FullPath = entry.FullName,
+                    IsDirectory = isDir,
+                    IsAudio = isAudio,
+                    IsGridView = _isGridView,
+                    SizeText = isDir ? "" : FormatFileSize(((FileInfo)entry).Length),
+                    DurationText = isAudio ? "AUDIO" : "",
+                    Thumbnail = null
+                };
+                _directoryItems.Add(item);
+            }
+
+            RenderBreadcrumbs(_currentDirectoryPath);
+
+            // Trigger background lazy loader
+            _lazyLoadCts?.Cancel();
+            _lazyLoadCts = new System.Threading.CancellationTokenSource();
+            var token = _lazyLoadCts.Token;
+            Task.Run(() => LazyLoadPageMetadataAndThumbnailsAsync(_allEntries, token), token);
         }
         catch (Exception ex)
         {
             Log($"Error loading directory contents: {ex.Message}");
         }
-    }
-
-    private void RenderCurrentPage()
-    {
-        _directoryItems.Clear();
-
-        int startIndex = (_currentPageIndex - 1) * ItemsPerPage;
-        var pageEntries = _allEntries.Skip(startIndex).Take(ItemsPerPage).ToList();
-
-        foreach (var entry in pageEntries)
-        {
-            bool isDir = (entry.Attributes & FileAttributes.Directory) != 0;
-            bool isAudio = !isDir && IsAudioFile(entry.Extension);
-            var item = new MediaItemViewModel
-            {
-                Name = entry.Name,
-                FullPath = entry.FullName,
-                IsDirectory = isDir,
-                IsAudio = isAudio,
-                SizeText = isDir ? "" : FormatFileSize(((FileInfo)entry).Length),
-                DurationText = isAudio ? "AUDIO" : "",
-                Thumbnail = null
-            };
-            _directoryItems.Add(item);
-        }
-
-        if (_breadcrumbText != null)
-        {
-            if (!_breadcrumbText.IsFocused)
-            {
-                _breadcrumbText.Text = FormatBreadcrumbPath(_currentDirectoryPath);
-            }
-            else
-            {
-                _breadcrumbText.Text = _currentDirectoryPath;
-            }
-        }
-        if (_pageNumberText != null) _pageNumberText.Text = $"Page {_currentPageIndex} / {_totalPageCount}";
-
-        if (_prevPageButton != null)
-        {
-            _prevPageButton.IsEnabled = _currentPageIndex > 1;
-            _prevPageButton.IsHitTestVisible = _currentPageIndex > 1;
-            _prevPageButton.Opacity = _currentPageIndex > 1 ? 1.0 : 0.2;
-        }
-        if (_nextPageButton != null)
-        {
-            _nextPageButton.IsEnabled = _currentPageIndex < _totalPageCount;
-            _nextPageButton.IsHitTestVisible = _currentPageIndex < _totalPageCount;
-            _nextPageButton.Opacity = _currentPageIndex < _totalPageCount ? 1.0 : 0.2;
-        }
-
-        // Trigger staggered lazy loader
-        _lazyLoadCts?.Cancel();
-        _lazyLoadCts = new System.Threading.CancellationTokenSource();
-        var token = _lazyLoadCts.Token;
-        Task.Run(() => LazyLoadPageMetadataAndThumbnailsAsync(pageEntries, token), token);
     }
 
     private async Task LazyLoadPageMetadataAndThumbnailsAsync(System.Collections.Generic.List<FileSystemInfo> pageEntries, CancellationToken token)
@@ -3064,15 +3070,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void NavigatePage(int direction)
-    {
-        int newPage = _currentPageIndex + direction;
-        if (newPage >= 1 && newPage <= _totalPageCount)
-        {
-            _currentPageIndex = newPage;
-            RenderCurrentPage();
-        }
-    }
+
 
     private void OnQueuePanelFileDropped(object? sender, DragEventArgs e)
     {
@@ -3198,100 +3196,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void OnDirectoryItemPointerEntered(object? sender, Avalonia.Input.PointerEventArgs e)
-    {
-        if (sender is ScrollViewer scrollViewer)
-        {
-            if (scrollViewer.Tag is CancellationTokenSource oldCts)
-            {
-                oldCts.Cancel();
-                oldCts.Dispose();
-            }
 
-            var cts = new CancellationTokenSource();
-            scrollViewer.Tag = cts;
-            var token = cts.Token;
-
-            try
-            {
-                scrollViewer.HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden;
-
-                // Wait 500ms hover delay
-                await Task.Delay(500, token);
-
-                double maxScroll = scrollViewer.Extent.Width - scrollViewer.Viewport.Width;
-                if (maxScroll <= 0) return;
-
-                while (!token.IsCancellationRequested)
-                {
-                    double currentOffset = 0;
-                    double speed = 35.0; // pixels per second
-                    int fps = 60;
-                    int delayMs = 1000 / fps;
-                    double step = speed / fps;
-
-                    while (currentOffset < maxScroll && !token.IsCancellationRequested)
-                    {
-                        currentOffset = Math.Min(maxScroll, currentOffset + step);
-                        scrollViewer.Offset = new Vector(currentOffset, 0);
-                        await Task.Delay(delayMs, token);
-                    }
-
-                    if (!token.IsCancellationRequested)
-                    {
-                        await Task.Delay(1000, token);
-                    }
-
-                    double returnSpeed = 70.0;
-                    double returnStep = returnSpeed / fps;
-                    while (currentOffset > 0 && !token.IsCancellationRequested)
-                    {
-                        currentOffset = Math.Max(0, currentOffset - returnStep);
-                        scrollViewer.Offset = new Vector(currentOffset, 0);
-                        await Task.Delay(delayMs, token);
-                    }
-
-                    if (!token.IsCancellationRequested)
-                    {
-                        await Task.Delay(1000, token);
-                    }
-                }
-            }
-            catch (TaskCanceledException) { }
-            catch (Exception ex)
-            {
-                Log($"Directory scroll error: {ex.Message}");
-            }
-        }
-    }
-
-    private void OnDirectoryItemPointerExited(object? sender, Avalonia.Input.PointerEventArgs e)
-    {
-        if (sender is ScrollViewer scrollViewer)
-        {
-            if (scrollViewer.Tag is CancellationTokenSource cts)
-            {
-                cts.Cancel();
-                cts.Dispose();
-                scrollViewer.Tag = null;
-            }
-            scrollViewer.Offset = new Vector(0, 0);
-            scrollViewer.HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled;
-        }
-    }
-
-    private void OnDirectoryItemDetached(object? sender, VisualTreeAttachmentEventArgs e)
-    {
-        if (sender is ScrollViewer scrollViewer)
-        {
-            if (scrollViewer.Tag is CancellationTokenSource cts)
-            {
-                cts.Cancel();
-                cts.Dispose();
-                scrollViewer.Tag = null;
-            }
-        }
-    }
 
     private void OnCurrentTimeTextPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
     {
@@ -4559,6 +4464,13 @@ public class MediaItemViewModel : System.ComponentModel.INotifyPropertyChanged
     {
         get => _isAudio;
         set { _isAudio = value; OnPropertyChanged(nameof(IsAudio)); OnPropertyChanged(nameof(IsVideo)); }
+    }
+
+    private bool _isGridView;
+    public bool IsGridView
+    {
+        get => _isGridView;
+        set { _isGridView = value; OnPropertyChanged(nameof(IsGridView)); }
     }
 
     public bool IsVideo => !IsDirectory && !IsAudio;
