@@ -303,7 +303,7 @@ public partial class MainWindow : Window
     // Settings Overlay Controls
     private Grid? _masterSettingsOverlay;
     private Button? _settingsCloseButton;
-    private ScrollViewer? _settingsScrollViewer;
+    private Carousel? _settingsCarousel;
     private Button? _navGeneralButton;
     private Button? _navEngineButton;
     private Button? _navAudioButton;
@@ -314,7 +314,7 @@ public partial class MainWindow : Window
     private ToggleSwitch? _rememberLastDirToggle;
     private ToggleSwitch? _allowMultipleInstancesToggle;
     private ToggleSwitch? _disableHdrPeakToggle;
-    private ToggleSwitch? _forceSoftwareDecodingToggle;
+    private ToggleSwitch? _hardwareAccelerationToggle;
     private TextBox? _defaultAudioLangTextBox;
     private CheckBox? _passthroughAc3CheckBox;
     private CheckBox? _passthroughDtsCheckBox;
@@ -327,11 +327,12 @@ public partial class MainWindow : Window
     private Slider? _subShadowOffsetSlider;
     private TextBlock? _subShadowOffsetValueText;
     private ComboBox? _defaultWorkspaceTabComboBox;
-    private ToggleSwitch? _disableOsdNotificationsToggle;
+    private ToggleSwitch? _showOsdNotificationsToggle;
     private ToggleSwitch? _disableSeekingPreviewsToggle;
     private ToggleSwitch? _tacticalDeckToggle;
     private ToggleSwitch? _showSystemClockToggle;
     private ComboBox? _clockFormatComboBox;
+    private Border? _clockFormatCard;
     private TextBlock? _singleSystemClockText;
     private TextBlock? _deckSystemClockText;
     private TextBlock? _singleSystemClockSeparator;
@@ -847,6 +848,7 @@ public partial class MainWindow : Window
             SetMpvOptionString(_mpvHandle, "hwdec", _forceSoftwareDecoding ? "no" : "auto");
             SetMpvOptionString(_mpvHandle, "target-peak", "auto");
             SetMpvOptionString(_mpvHandle, "sub-auto", "all");
+            SetMpvOptionString(_mpvHandle, "audio-display", "attachment");
 
             int initResult = MpvInitialize(_mpvHandle);
             Log($"Engine initialization code returned: {initResult}");
@@ -856,11 +858,11 @@ public partial class MainWindow : Window
                 _isEngineInitialized = true;
                 InitializePreviewEngine();
 
-                // Safely allocate unmanaged strings to pass down to C++
-                IntPtr timePropPtr = Marshal.StringToHGlobalAnsi("playback-time");
-                IntPtr durationPropPtr = Marshal.StringToHGlobalAnsi("duration");
-                IntPtr volumePropPtr = Marshal.StringToHGlobalAnsi("volume");
-                IntPtr pausePropPtr = Marshal.StringToHGlobalAnsi("pause");
+                // Safely allocate unmanaged UTF-8 strings to pass down to C++
+                IntPtr timePropPtr = Marshal.StringToCoTaskMemUTF8("playback-time");
+                IntPtr durationPropPtr = Marshal.StringToCoTaskMemUTF8("duration");
+                IntPtr volumePropPtr = Marshal.StringToCoTaskMemUTF8("volume");
+                IntPtr pausePropPtr = Marshal.StringToCoTaskMemUTF8("pause");
 
                 // Format 5 = MPV_FORMAT_DOUBLE
                 MpvObserveProperty(_mpvHandle, 101, timePropPtr, 5);
@@ -869,10 +871,10 @@ public partial class MainWindow : Window
                 // Format 6 = MPV_FORMAT_FLAG
                 MpvObserveProperty(_mpvHandle, 104, pausePropPtr, 6);
 
-                Marshal.FreeHGlobal(timePropPtr);
-                Marshal.FreeHGlobal(durationPropPtr);
-                Marshal.FreeHGlobal(volumePropPtr);
-                Marshal.FreeHGlobal(pausePropPtr);
+                Marshal.FreeCoTaskMem(timePropPtr);
+                Marshal.FreeCoTaskMem(durationPropPtr);
+                Marshal.FreeCoTaskMem(volumePropPtr);
+                Marshal.FreeCoTaskMem(pausePropPtr);
 
                 _eventLoopCts = new CancellationTokenSource();
                 Task.Run(() => RunEventLoop(_eventLoopCts.Token));
@@ -935,6 +937,38 @@ public partial class MainWindow : Window
                         if (_autoDebandBadge != null) _autoDebandBadge.IsVisible = false;
                         if (_deinterlaceBadge != null) _deinterlaceBadge.IsVisible = false;
                     });
+
+                    // Check if loaded media is an audio file
+                    bool isAudioTrack = !string.IsNullOrEmpty(_currentLoadedFilePath) && IsAudioFile(Path.GetExtension(_currentLoadedFilePath));
+
+                    // Read video dimensions from libmpv (embedded album art or video stream)
+                    string? videoWStr = GetMpvPropertyString("video-params/w");
+                    bool hasVideoTrack = double.TryParse(videoWStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double videoW) && videoW > 0;
+
+                    if (isAudioTrack)
+                    {
+                        if (hasVideoTrack)
+                        {
+                            Log($"[Media Safeguard] Audio track with embedded album art detected ({videoW}px width). Rendering cover art in sRGB SDR mode (bypassing HDR/peak scaling).");
+                            Dispatcher.UIThread.Post(() =>
+                            {
+                                if (_idleLogoPanel != null) _idleLogoPanel.IsVisible = false;
+                            });
+                            // Clear video filter for album art
+                            SetMpvPropertyString(_mpvHandle, "vf", "");
+                            // Bypass HDR/peak scaling and low-bitrate debanding filters for cover art
+                            continue;
+                        }
+                        else
+                        {
+                            Log("[Media Safeguard] Audio-only track without cover art. Displaying audio canvas.");
+                            Dispatcher.UIThread.Post(() =>
+                            {
+                                if (_idleLogoPanel != null) _idleLogoPanel.IsVisible = true;
+                            });
+                            continue;
+                        }
+                    }
 
                     // Clear video filter first
                     SetMpvPropertyString(_mpvHandle, "vf", "");
@@ -1754,11 +1788,23 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Reset seek bar tracking variables immediately when loading a new video file
+        string ext = Path.GetExtension(filePath);
+        if (!IsSupportedMediaFile(ext))
+        {
+            Log($"PlayMediaFile blocked — unsupported media file format: '{ext}' for file '{filePath}'");
+            return;
+        }
+
+        bool isAudio = IsAudioFile(ext);
+
+        // Reset seek bar tracking variables immediately when loading a new file
         _playbackPosition = 0;
         _playbackDuration = 0;
         _lastLoggedSecond = -1;
         UpdateTransportUI(0, 0);
+
+        // Ensure vid=auto so libmpv can load embedded album art attachments or video streams
+        SetMpvPropertyString(_mpvHandle, "vid", "auto");
 
         // Use the dispatcher to safely update UI components from our background process
         Dispatcher.UIThread.Post(() =>
@@ -1790,7 +1836,7 @@ public partial class MainWindow : Window
                 }
             }
 
-            // Hide idle logo when media starts playing
+            // Initially hide idle logo; MPV_EVENT_FILE_LOADED will show it if no embedded album art exists
             if (_idleLogoPanel != null) _idleLogoPanel.IsVisible = false;
 
             if (_videoTitleText != null)
@@ -1968,10 +2014,15 @@ public partial class MainWindow : Window
 
     private static void SendCommand(IntPtr mpvHandle, params string[] args)
     {
+        if (mpvHandle == IntPtr.Zero || args == null || args.Length == 0) return;
+
         IntPtr[] ptrArray = new IntPtr[args.Length + 1];
         for (int i = 0; i < args.Length; i++)
         {
-            ptrArray[i] = Marshal.StringToHGlobalAnsi(args[i]);
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(args[i] + "\0");
+            IntPtr ptr = Marshal.AllocHGlobal(bytes.Length);
+            Marshal.Copy(bytes, 0, ptr, bytes.Length);
+            ptrArray[i] = ptr;
         }
         ptrArray[args.Length] = IntPtr.Zero;
 
@@ -1982,7 +2033,10 @@ public partial class MainWindow : Window
 
         for (int i = 0; i < args.Length; i++)
         {
-            Marshal.FreeHGlobal(ptrArray[i]);
+            if (ptrArray[i] != IntPtr.Zero)
+            {
+                Marshal.FreeHGlobal(ptrArray[i]);
+            }
         }
         Marshal.FreeHGlobal(unmanagedArray);
     }
@@ -2768,7 +2822,7 @@ public partial class MainWindow : Window
             var entries = dirInfo.GetFileSystemInfos().Where(e => e.Exists).ToList();
 
             var folders = entries.Where(e => (e.Attributes & FileAttributes.Directory) != 0).ToList();
-            var files = entries.Where(e => (e.Attributes & FileAttributes.Directory) == 0 && IsVideoFile(e.Extension)).ToList();
+            var files = entries.Where(e => (e.Attributes & FileAttributes.Directory) == 0 && IsSupportedMediaFile(e.Extension)).ToList();
 
             // Sort folders
             System.Collections.Generic.IEnumerable<System.IO.FileSystemInfo> sortedFolders;
@@ -2834,13 +2888,15 @@ public partial class MainWindow : Window
         foreach (var entry in pageEntries)
         {
             bool isDir = (entry.Attributes & FileAttributes.Directory) != 0;
+            bool isAudio = !isDir && IsAudioFile(entry.Extension);
             var item = new MediaItemViewModel
             {
                 Name = entry.Name,
                 FullPath = entry.FullName,
                 IsDirectory = isDir,
+                IsAudio = isAudio,
                 SizeText = isDir ? "" : FormatFileSize(((FileInfo)entry).Length),
-                DurationText = "",
+                DurationText = isAudio ? "AUDIO" : "",
                 Thumbnail = null
             };
             _directoryItems.Add(item);
@@ -2887,11 +2943,12 @@ public partial class MainWindow : Window
         {
             if (token.IsCancellationRequested) return;
 
-            // Process video files only
-            if ((entry.Attributes & FileAttributes.Directory) != 0 || !IsVideoFile(entry.Extension))
+            // Process media files only
+            if ((entry.Attributes & FileAttributes.Directory) != 0 || !IsSupportedMediaFile(entry.Extension))
                 continue;
 
             string filePath = entry.FullName;
+            bool isAudioFile = IsAudioFile(entry.Extension);
 
             // Load file in background preview engine
             SendCommand(_previewMpvHandle, "loadfile", filePath);
@@ -2913,17 +2970,21 @@ public partial class MainWindow : Window
 
             if (token.IsCancellationRequested) return;
 
-            if (duration <= 0) continue;
-
-            string durationText = TimeSpan.FromSeconds(duration).ToString(@"hh\:mm\:ss");
-            Dispatcher.UIThread.Post(() =>
+            if (duration > 0)
             {
-                var target = _directoryItems.FirstOrDefault(x => x.FullPath == filePath);
-                if (target != null)
+                string durationText = TimeSpan.FromSeconds(duration).ToString(@"hh\:mm\:ss");
+                Dispatcher.UIThread.Post(() =>
                 {
-                    target.DurationText = durationText;
-                }
-            });
+                    var target = _directoryItems.FirstOrDefault(x => x.FullPath == filePath);
+                    if (target != null)
+                    {
+                        target.DurationText = durationText;
+                    }
+                });
+            }
+
+            // Skip thumbnail frame extraction for audio files
+            if (isAudioFile) continue;
 
             // Clean existing frames
             if (Directory.Exists(_previewTempDir))
@@ -3030,7 +3091,7 @@ public partial class MainWindow : Window
             }
             else if (File.Exists(path))
             {
-                if (IsVideoFile(Path.GetExtension(path)))
+                if (IsSupportedMediaFile(Path.GetExtension(path)))
                 {
                     EnqueueFile(path);
                 }
@@ -3046,7 +3107,7 @@ public partial class MainWindow : Window
             {
                 EnqueueDirectoryRecursively(dir);
             }
-            foreach (var file in Directory.GetFiles(dirPath).Where(f => IsVideoFile(Path.GetExtension(f))).OrderBy(f => f))
+            foreach (var file in Directory.GetFiles(dirPath).Where(f => IsSupportedMediaFile(Path.GetExtension(f))).OrderBy(f => f))
             {
                 EnqueueFile(file);
             }
@@ -3393,10 +3454,17 @@ public partial class MainWindow : Window
 
     private static readonly System.Collections.Generic.HashSet<string> VideoExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".mp4", ".mkv", ".avi", ".mov", ".flv", ".wmv", ".webm", ".m4v", ".mpg", ".mpeg", ".3gp"
+        ".mp4", ".mkv", ".avi", ".mov", ".flv", ".wmv", ".webm", ".m4v", ".mpg", ".mpeg", ".3gp", ".ogv", ".ts", ".mts"
+    };
+
+    private static readonly System.Collections.Generic.HashSet<string> AudioExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg", ".opus", ".wma", ".alac"
     };
 
     private bool IsVideoFile(string ext) => VideoExtensions.Contains(ext);
+    private bool IsAudioFile(string ext) => AudioExtensions.Contains(ext);
+    private bool IsSupportedMediaFile(string ext) => IsVideoFile(ext) || IsAudioFile(ext);
 
     private static string FormatFileSize(long bytes)
     {
@@ -4184,7 +4252,7 @@ public partial class MainWindow : Window
         if (_rememberLastDirToggle != null) _rememberLastDirToggle.IsChecked = _rememberLastDirectoryPath;
         if (_allowMultipleInstancesToggle != null) _allowMultipleInstancesToggle.IsChecked = _allowMultipleInstances;
         if (_disableHdrPeakToggle != null) _disableHdrPeakToggle.IsChecked = _disableHdrPeak;
-        if (_forceSoftwareDecodingToggle != null) _forceSoftwareDecodingToggle.IsChecked = _forceSoftwareDecoding;
+        if (_hardwareAccelerationToggle != null) _hardwareAccelerationToggle.IsChecked = !_forceSoftwareDecoding;
         if (_defaultAudioLangTextBox != null) _defaultAudioLangTextBox.Text = _defaultAudioLanguage;
         
         if (_passthroughAc3CheckBox != null) _passthroughAc3CheckBox.IsChecked = _passthroughAc3;
@@ -4208,11 +4276,12 @@ public partial class MainWindow : Window
             };
         }
         
-        if (_disableOsdNotificationsToggle != null) _disableOsdNotificationsToggle.IsChecked = _disableOsdNotifications;
+        if (_showOsdNotificationsToggle != null) _showOsdNotificationsToggle.IsChecked = !_disableOsdNotifications;
         if (_disableSeekingPreviewsToggle != null) _disableSeekingPreviewsToggle.IsChecked = _disableSeekingPreviews;
         if (_tacticalDeckToggle != null) _tacticalDeckToggle.IsChecked = _isTacticalDeckMode;
         if (_showSystemClockToggle != null) _showSystemClockToggle.IsChecked = _showSystemClock;
         if (_clockFormatComboBox != null) _clockFormatComboBox.SelectedIndex = _use24HourClock ? 0 : 1;
+        if (_clockFormatCard != null) _clockFormatCard.IsVisible = _showSystemClock;
 
         if (_videoSurface != null) _videoSurface.IsVisible = false;
         _masterSettingsOverlay.IsVisible = true;
@@ -4230,7 +4299,7 @@ public partial class MainWindow : Window
         if (_allowMultipleInstancesToggle != null) _allowMultipleInstances = _allowMultipleInstancesToggle.IsChecked ?? false;
         
         if (_disableHdrPeakToggle != null) _disableHdrPeak = _disableHdrPeakToggle.IsChecked ?? false;
-        if (_forceSoftwareDecodingToggle != null) _forceSoftwareDecoding = _forceSoftwareDecodingToggle.IsChecked ?? false;
+        if (_hardwareAccelerationToggle != null) _forceSoftwareDecoding = !(_hardwareAccelerationToggle.IsChecked ?? true);
         if (_defaultAudioLangTextBox != null) _defaultAudioLanguage = _defaultAudioLangTextBox.Text ?? "eng";
         
         if (_passthroughAc3CheckBox != null) _passthroughAc3 = _passthroughAc3CheckBox.IsChecked ?? false;
@@ -4254,7 +4323,7 @@ public partial class MainWindow : Window
             };
         }
         
-        if (_disableOsdNotificationsToggle != null) _disableOsdNotifications = _disableOsdNotificationsToggle.IsChecked ?? false;
+        if (_showOsdNotificationsToggle != null) _disableOsdNotifications = !(_showOsdNotificationsToggle.IsChecked ?? true);
         if (_disableSeekingPreviewsToggle != null) _disableSeekingPreviews = _disableSeekingPreviewsToggle.IsChecked ?? false;
 
         bool oldMode = _isTacticalDeckMode;
@@ -4299,17 +4368,6 @@ public partial class MainWindow : Window
         Log("Fullscreen Settings Overlay closed and properties synchronized.");
     }
 
-    private void ScrollToSection(Control targetSection)
-    {
-        if (_settingsScrollViewer == null) return;
-        var relativePoint = targetSection.TranslatePoint(new Point(0, 0), _settingsScrollViewer);
-        if (relativePoint.HasValue)
-        {
-            double newY = _settingsScrollViewer.Offset.Y + relativePoint.Value.Y;
-            _settingsScrollViewer.Offset = new Vector(_settingsScrollViewer.Offset.X, Math.Max(0, newY));
-        }
-    }
-
     private void PopulateSubtitleFonts()
     {
         if (_subtitleFontComboBox == null) return;
@@ -4328,7 +4386,7 @@ public partial class MainWindow : Window
     {
         _masterSettingsOverlay = this.FindControl<Grid>("MasterSettingsOverlay");
         _settingsCloseButton = this.FindControl<Button>("SettingsCloseButton");
-        _settingsScrollViewer = this.FindControl<ScrollViewer>("SettingsScrollViewer");
+        _settingsCarousel = this.FindControl<Carousel>("SettingsCarousel");
         
         _navGeneralButton = this.FindControl<Button>("NavGeneralButton");
         _navEngineButton = this.FindControl<Button>("NavEngineButton");
@@ -4342,7 +4400,7 @@ public partial class MainWindow : Window
         _allowMultipleInstancesToggle = this.FindControl<ToggleSwitch>("AllowMultipleInstancesToggle");
         
         _disableHdrPeakToggle = this.FindControl<ToggleSwitch>("DisableHdrPeakToggle");
-        _forceSoftwareDecodingToggle = this.FindControl<ToggleSwitch>("ForceSoftwareDecodingToggle");
+        _hardwareAccelerationToggle = this.FindControl<ToggleSwitch>("HardwareAccelerationToggle");
         
         _defaultAudioLangTextBox = this.FindControl<TextBox>("DefaultAudioLangTextBox");
         _passthroughAc3CheckBox = this.FindControl<CheckBox>("PassthroughAc3CheckBox");
@@ -4358,11 +4416,12 @@ public partial class MainWindow : Window
         _subShadowOffsetValueText = this.FindControl<TextBlock>("SubShadowOffsetValueText");
         
         _defaultWorkspaceTabComboBox = this.FindControl<ComboBox>("DefaultWorkspaceTabComboBox");
-        _disableOsdNotificationsToggle = this.FindControl<ToggleSwitch>("DisableOsdNotificationsToggle");
+        _showOsdNotificationsToggle = this.FindControl<ToggleSwitch>("ShowOsdNotificationsToggle");
         _disableSeekingPreviewsToggle = this.FindControl<ToggleSwitch>("DisableSeekingPreviewsToggle");
         _tacticalDeckToggle = this.FindControl<ToggleSwitch>("TacticalDeckToggle");
         _showSystemClockToggle = this.FindControl<ToggleSwitch>("ShowSystemClockToggle");
         _clockFormatComboBox = this.FindControl<ComboBox>("ClockFormatComboBox");
+        _clockFormatCard = this.FindControl<Border>("ClockFormatCard");
         
         // Settings close button click
         if (_settingsCloseButton != null)
@@ -4395,16 +4454,27 @@ public partial class MainWindow : Window
             };
         }
 
-        // Wire up nav clicks and scroll-to mappings
+        // Dynamic System Clock Format card visibility toggle
+        if (_showSystemClockToggle != null)
+        {
+            _showSystemClockToggle.IsCheckedChanged += (s, e) =>
+            {
+                if (_clockFormatCard != null)
+                {
+                    _clockFormatCard.IsVisible = _showSystemClockToggle.IsChecked ?? false;
+                }
+            };
+        }
+
+        // Wire up nav clicks to Carousel page switching
         var navButtons = new[] { _navGeneralButton, _navEngineButton, _navAudioButton, _navSubtitlesButton, _navUiButton };
-        var sections = new[] { "SectionGeneral", "SectionEngine", "SectionAudio", "SectionTypography", "SectionUi" };
 
         for (int i = 0; i < navButtons.Length; i++)
         {
             var btn = navButtons[i];
             if (btn == null) continue;
             
-            string sectionName = sections[i];
+            int pageIndex = i;
             btn.Click += (s, e) =>
             {
                 foreach (var b in navButtons)
@@ -4412,10 +4482,9 @@ public partial class MainWindow : Window
                     if (b != null) ToggleClass(b, "active", b == btn);
                 }
                 
-                var targetSection = this.FindControl<Control>(sectionName);
-                if (targetSection != null)
+                if (_settingsCarousel != null)
                 {
-                    ScrollToSection(targetSection);
+                    _settingsCarousel.SelectedIndex = pageIndex;
                 }
             };
         }
@@ -4482,8 +4551,17 @@ public class MediaItemViewModel : System.ComponentModel.INotifyPropertyChanged
     public bool IsDirectory
     {
         get => _isDirectory;
-        set { _isDirectory = value; OnPropertyChanged(nameof(IsDirectory)); }
+        set { _isDirectory = value; OnPropertyChanged(nameof(IsDirectory)); OnPropertyChanged(nameof(IsVideo)); }
     }
+
+    private bool _isAudio;
+    public bool IsAudio
+    {
+        get => _isAudio;
+        set { _isAudio = value; OnPropertyChanged(nameof(IsAudio)); OnPropertyChanged(nameof(IsVideo)); }
+    }
+
+    public bool IsVideo => !IsDirectory && !IsAudio;
 
     private string _sizeText = "";
     public string SizeText

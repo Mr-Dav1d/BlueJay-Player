@@ -469,13 +469,24 @@
                                 <ListBox.ItemTemplate>
                                     <DataTemplate x:DataType="views:MediaItemViewModel">
                                         <Grid ColumnDefinitions="Auto,*,Auto" Height="50" Margin="0,2">
-                                            <!-- Thumbnail or Folder Icon -->
+                                            <!-- Thumbnail, Folder Icon, or Audio Badge -->
                                             <Border Grid.Column="0" Width="80" Height="45" Background="#09090D" CornerRadius="4" BorderBrush="#1F222F" BorderThickness="0.5" ClipToBounds="True">
                                                 <Panel>
                                                     <!-- Folder Icon (if directory) -->
                                                     <PathIcon Data="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z" Width="20" Height="20" Foreground="#2B88FF" IsVisible="{Binding IsDirectory}"/>
-                                                    <!-- Video Thumbnail (if file) -->
-                                                    <Panel IsVisible="{Binding !IsDirectory}">
+                                                    
+                                                    <!-- Audio Card Badge (if audio file) -->
+                                                    <Border Background="#0D1626" IsVisible="{Binding IsAudio}" VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
+                                                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="2">
+                                                            <PathIcon Data="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" Width="16" Height="16" Foreground="#00D2FF"/>
+                                                            <Border Background="#162B42" CornerRadius="3" Padding="4,1">
+                                                                <TextBlock Text="AUDIO" Foreground="#00D2FF" FontSize="8" FontWeight="Bold" LetterSpacing="0.5"/>
+                                                            </Border>
+                                                        </StackPanel>
+                                                    </Border>
+
+                                                    <!-- Video Thumbnail (if video file) -->
+                                                    <Panel IsVisible="{Binding IsVideo}">
                                                         <!-- Pulsing placeholder border when thumbnail is not loaded -->
                                                         <Border Background="#14141A" Classes="pulse" IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNull}}"/>
                                                         <!-- Loaded image -->
@@ -496,7 +507,8 @@
                                                     <TextBlock Text="Folder" Foreground="#5C647C" FontSize="10" FontFamily="Consolas" IsVisible="{Binding IsDirectory}"/>
                                                     <TextBlock Text="{Binding SizeText}" Foreground="#5C647C" FontSize="10" FontFamily="Consolas" IsVisible="{Binding !IsDirectory}"/>
                                                     <TextBlock Text="•" Foreground="#1F222F" FontSize="10" IsVisible="{Binding !IsDirectory}"/>
-                                                    <TextBlock Text="{Binding DurationText}" Foreground="#5C647C" FontSize="10" FontFamily="Consolas" IsVisible="{Binding !IsDirectory}"/>
+                                                    <TextBlock Text="{Binding DurationText}" Foreground="#00D2FF" FontSize="10" FontFamily="Consolas" FontWeight="SemiBold" IsVisible="{Binding IsAudio}"/>
+                                                    <TextBlock Text="{Binding DurationText}" Foreground="#5C647C" FontSize="10" FontFamily="Consolas" IsVisible="{Binding IsVideo}"/>
                                                 </StackPanel>
                                             </StackPanel>
 
@@ -720,95 +732,103 @@
                         </Grid>
                     </Border>
 
-                    <!-- Right Column (Configuration Grids Scrollable view) -->
-                    <ScrollViewer Grid.Column="1" Name="SettingsScrollViewer" VerticalScrollBarVisibility="Auto" Margin="32,24">
-                        <StackPanel Spacing="32">
-                            <!-- Section 01: General & Paths -->
-                            <StackPanel Name="SectionGeneral" Spacing="16">
+                    <!-- Right Column (Configuration Grids Carousel view) -->
+                    <Carousel Grid.Column="1" Name="SettingsCarousel" Margin="32,24">
+                        <!-- Page 01: General & Paths -->
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel Spacing="16">
                                 <TextBlock Text="[01] GENERAL &amp; WORKSPACE PATH DEFAULTS" Foreground="#2B88FF" FontSize="12" FontWeight="Bold" LetterSpacing="0.8"/>
-                                <Border Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="8" Padding="16">
-                                    <StackPanel Spacing="16">
-                                        <!-- Boot Directory Route -->
-                                        <StackPanel Spacing="6">
+                                <StackPanel Spacing="12">
+                                    <!-- Boot Directory Route -->
+                                    <Border Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="8" Padding="16">
+                                        <StackPanel Spacing="8">
                                             <TextBlock Text="Default Boot Directory Route" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
                                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                                 <TextBox Grid.Column="0" Name="DefaultBootDirTextBox" Watermark="e.g. D:/Media/Movies" Background="#0C0C12" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="4" Padding="8,6" FontSize="11" FontFamily="Consolas" Foreground="#C5CEE3" CaretBrush="#2B88FF" SelectionBrush="#2B88FF"/>
                                                 <Button Grid.Column="1" Name="BrowseBootDirButton" Classes="page-btn" Content="..." Width="40" FontSize="11" FontWeight="Bold"/>
                                             </Grid>
-                                            <TextBlock Text="The root workspace directory loaded when opening the player side drawer." Foreground="#5C647C" FontSize="10"/>
+                                            <TextBlock Text="The root workspace directory loaded when opening the player side drawer." Foreground="#5C647C" FontSize="10" TextWrapping="Wrap"/>
                                         </StackPanel>
-                                        
-                                        <Border Background="#1F222F" Height="1"/>
+                                    </Border>
 
-                                        <!-- Remember Last Session Directory -->
+                                    <!-- Remember Last Session Directory -->
+                                    <Border Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="8" Padding="16">
                                         <Grid ColumnDefinitions="*,Auto">
-                                            <StackPanel Spacing="3">
+                                            <StackPanel Spacing="4" Margin="0,0,16,0">
                                                 <TextBlock Text="Remember Last Session Directory" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
-                                                <TextBlock Text="Overrides default boot path to resume browsing from the last active folder." Foreground="#5C647C" FontSize="10"/>
+                                                <TextBlock Text="Overrides default boot path to resume browsing from the last active folder." Foreground="#5C647C" FontSize="10" TextWrapping="Wrap"/>
                                             </StackPanel>
                                             <ToggleSwitch Grid.Column="1" Name="RememberLastDirToggle" OnContent="Yes" OffContent="No" IsChecked="True"/>
                                         </Grid>
-                                        
-                                        <Border Background="#1F222F" Height="1"/>
+                                    </Border>
 
-                                        <!-- Instance Rules -->
+                                    <!-- Instance Rules -->
+                                    <Border Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="8" Padding="16">
                                         <Grid ColumnDefinitions="*,Auto">
-                                            <StackPanel Spacing="3">
+                                            <StackPanel Spacing="4" Margin="0,0,16,0">
                                                 <TextBlock Text="Allow Multiple Windows" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
-                                                <TextBlock Text="Allows opening multiple player instances simultaneously." Foreground="#5C647C" FontSize="10"/>
+                                                <TextBlock Text="Allows opening multiple player instances simultaneously." Foreground="#5C647C" FontSize="10" TextWrapping="Wrap"/>
                                             </StackPanel>
                                             <ToggleSwitch Grid.Column="1" Name="AllowMultipleInstancesToggle" OnContent="Yes" OffContent="No"/>
                                         </Grid>
-                                    </StackPanel>
-                                </Border>
+                                    </Border>
+                                </StackPanel>
                             </StackPanel>
+                        </ScrollViewer>
 
-                            <!-- Section 02: Engine & Automation -->
-                            <StackPanel Name="SectionEngine" Spacing="16">
-                                <TextBlock Text="[02] ENGINE OVERRIDE &amp; AUTOMATION MANAGEMENT" Foreground="#2B88FF" FontSize="12" FontWeight="Bold" LetterSpacing="0.8"/>
-                                <Border Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="8" Padding="16">
-                                    <StackPanel Spacing="16">
-                                        <!-- HDR Format Fallback Guard -->
+                        <!-- Page 02: Engine & Playback -->
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel Spacing="16">
+                                <TextBlock Text="[02] PLAYBACK &amp; HARDWARE ENGINE" Foreground="#2B88FF" FontSize="12" FontWeight="Bold" LetterSpacing="0.8"/>
+                                <StackPanel Spacing="12">
+                                    <!-- Hardware Acceleration -->
+                                    <Border Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="8" Padding="16">
                                         <Grid ColumnDefinitions="*,Auto">
-                                            <StackPanel Spacing="3" Margin="0,0,16,0">
-                                                <TextBlock Text="Disable HDR Peak Computation" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
-                                                <TextBlock Text="Disables libmpv's dynamic peak-luminance analysis (hdr-compute-peak=no) for basic OS color mapping." Foreground="#5C647C" FontSize="10" TextWrapping="Wrap"/>
+                                            <StackPanel Spacing="4" Margin="0,0,16,0">
+                                                <TextBlock Text="Hardware Video Acceleration" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
+                                                <TextBlock Text="Enables GPU hardware video decoding for efficient, low-CPU playback. Turn off to use software decoding fallback." Foreground="#5C647C" FontSize="10" TextWrapping="Wrap"/>
                                             </StackPanel>
-                                            <ToggleSwitch Grid.Column="1" Name="DisableHdrPeakToggle" OnContent="Yes" OffContent="No"/>
+                                            <ToggleSwitch Grid.Column="1" Name="HardwareAccelerationToggle" OnContent="Yes" OffContent="No" IsChecked="True"/>
                                         </Grid>
-                                        
-                                        <Border Background="#1F222F" Height="1"/>
+                                    </Border>
 
-                                        <!-- Force Software Decoding -->
-                                        <Grid ColumnDefinitions="*,Auto">
-                                            <StackPanel Spacing="3" Margin="0,0,16,0">
-                                                <TextBlock Text="Force Software Decoding" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
-                                                <TextBlock Text="Disables hardware decoding (hwdec=no) to work around buggy GPU drivers." Foreground="#5C647C" FontSize="10" TextWrapping="Wrap"/>
-                                            </StackPanel>
-                                            <ToggleSwitch Grid.Column="1" Name="ForceSoftwareDecodingToggle" OnContent="Yes" OffContent="No"/>
-                                        </Grid>
-                                    </StackPanel>
-                                </Border>
-                            </StackPanel>
-
-                            <!-- Section 03: High-Fidelity Audio Setup -->
-                            <StackPanel Name="SectionAudio" Spacing="16">
-                                <TextBlock Text="[03] HIGH-FIDELITY AUDIO SETUP" Foreground="#2B88FF" FontSize="12" FontWeight="Bold" LetterSpacing="0.8"/>
-                                <Border Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="8" Padding="16">
-                                    <StackPanel Spacing="16">
-                                        <!-- Default Audio Output Language -->
-                                        <StackPanel Spacing="6">
-                                            <TextBlock Text="Default Audio Output Track Language" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
-                                            <TextBox Name="DefaultAudioLangTextBox" Watermark="e.g. eng, jpn" Background="#0C0C12" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="4" Padding="8,6" FontSize="11" FontFamily="Consolas" Foreground="#C5CEE3" CaretBrush="#2B88FF" SelectionBrush="#2B88FF"/>
-                                            <TextBlock Text="Automatically select audio tracks matching your language preference." Foreground="#5C647C" FontSize="10"/>
+                                    <!-- Advanced Parameters Fold -->
+                                    <Expander Header="⚙️ Advanced Engine Parameters" Foreground="#8A92AD" FontSize="11" FontWeight="SemiBold" Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="8" Padding="12">
+                                        <StackPanel Spacing="12" Margin="0,8,0,0">
+                                            <Border Background="#0C0C12" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="6" Padding="12">
+                                                <Grid ColumnDefinitions="*,Auto">
+                                                    <StackPanel Spacing="4" Margin="0,0,16,0">
+                                                        <TextBlock Text="Disable Dynamic HDR Peak Computation" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
+                                                        <TextBlock Text="Bypasses dynamic peak-luminance analysis (hdr-compute-peak=no) for basic OS color mapping." Foreground="#5C647C" FontSize="10" TextWrapping="Wrap"/>
+                                                    </StackPanel>
+                                                    <ToggleSwitch Grid.Column="1" Name="DisableHdrPeakToggle" OnContent="Yes" OffContent="No"/>
+                                                </Grid>
+                                            </Border>
                                         </StackPanel>
-                                        
-                                        <Border Background="#1F222F" Height="1"/>
+                                    </Expander>
+                                </StackPanel>
+                            </StackPanel>
+                        </ScrollViewer>
 
-                                        <!-- Hardware Passthrough Matrix -->
+                        <!-- Page 03: Audio Setup -->
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel Spacing="16">
+                                <TextBlock Text="[03] HIGH-FIDELITY AUDIO SETUP" Foreground="#2B88FF" FontSize="12" FontWeight="Bold" LetterSpacing="0.8"/>
+                                <StackPanel Spacing="12">
+                                    <!-- Default Audio Language -->
+                                    <Border Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="8" Padding="16">
                                         <StackPanel Spacing="8">
-                                            <TextBlock Text="Hardware Passthrough Bitstreaming" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
-                                            <TextBlock Text="Select audio formats to pass directly to your external AV receiver decoder." Foreground="#5C647C" FontSize="10" Margin="0,0,0,4"/>
+                                            <TextBlock Text="Default Audio Output Language" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
+                                            <TextBox Name="DefaultAudioLangTextBox" Watermark="e.g. eng, jpn" Background="#0C0C12" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="4" Padding="8,6" FontSize="11" FontFamily="Consolas" Foreground="#C5CEE3" CaretBrush="#2B88FF" SelectionBrush="#2B88FF"/>
+                                            <TextBlock Text="Automatically select audio tracks matching your language preference code." Foreground="#5C647C" FontSize="10" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Home Theater Bitstream Passthrough -->
+                                    <Border Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="8" Padding="16">
+                                        <StackPanel Spacing="8">
+                                            <TextBlock Text="Home Theater Bitstream Passthrough" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
+                                            <TextBlock Text="Select raw audio formats to pass directly to your external AV receiver decoder." Foreground="#5C647C" FontSize="10" Margin="0,0,0,4" TextWrapping="Wrap"/>
                                             <Grid ColumnDefinitions="*,*,*,*">
                                                 <CheckBox Grid.Column="0" Name="PassthroughAc3CheckBox" Content="AC3"/>
                                                 <CheckBox Grid.Column="1" Name="PassthroughDtsCheckBox" Content="DTS"/>
@@ -816,36 +836,42 @@
                                                 <CheckBox Grid.Column="3" Name="PassthroughTrueHdCheckBox" Content="TrueHD"/>
                                             </Grid>
                                         </StackPanel>
-                                        
-                                        <Border Background="#1F222F" Height="1"/>
+                                    </Border>
 
-                                        <!-- Exclusive Audio Lockout -->
-                                        <Grid ColumnDefinitions="*,Auto">
-                                            <StackPanel Spacing="3" Margin="0,0,16,0">
-                                                <TextBlock Text="Exclusive Audio Lockout (WASAPI Exclusive)" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
-                                                <TextBlock Text="Bypasses Windows Mixer for bitperfect output. Blocks background OS notifications and browser sounds." Foreground="#5C647C" FontSize="10" TextWrapping="Wrap"/>
-                                            </StackPanel>
-                                            <ToggleSwitch Grid.Column="1" Name="WasapiExclusiveToggle" OnContent="Yes" OffContent="No"/>
-                                        </Grid>
-                                    </StackPanel>
-                                </Border>
-                            </StackPanel>
-
-                            <!-- Section 04: Advanced Typography Customization -->
-                            <StackPanel Name="SectionTypography" Spacing="16">
-                                <TextBlock Text="[04] ADVANCED TYPOGRAPHY CUSTOMIZATION" Foreground="#2B88FF" FontSize="12" FontWeight="Bold" LetterSpacing="0.8"/>
-                                <Border Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="8" Padding="16">
-                                    <StackPanel Spacing="16">
-                                        <!-- Global Subtitle Font Family Override -->
-                                        <StackPanel Spacing="6">
-                                            <TextBlock Text="Global Subtitle Override Font Family" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
-                                            <ComboBox Name="SubtitleFontComboBox" HorizontalAlignment="Stretch" Background="#0C0C12" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="4" Padding="10,6" FontSize="11" Foreground="#C5CEE3"/>
-                                            <TextBlock Text="Overrides subtitle font family system-wide." Foreground="#5C647C" FontSize="10"/>
+                                    <!-- Advanced Parameters Fold -->
+                                    <Expander Header="⚙️ Advanced Engine Parameters" Foreground="#8A92AD" FontSize="11" FontWeight="SemiBold" Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="8" Padding="12">
+                                        <StackPanel Spacing="12" Margin="0,8,0,0">
+                                            <Border Background="#0C0C12" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="6" Padding="12">
+                                                <Grid ColumnDefinitions="*,Auto">
+                                                    <StackPanel Spacing="4" Margin="0,0,16,0">
+                                                        <TextBlock Text="Exclusive Audio Lockout (WASAPI Exclusive)" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
+                                                        <TextBlock Text="Bypasses Windows Mixer for bitperfect output. Blocks background OS notifications and browser sounds." Foreground="#5C647C" FontSize="10" TextWrapping="Wrap"/>
+                                                    </StackPanel>
+                                                    <ToggleSwitch Grid.Column="1" Name="WasapiExclusiveToggle" OnContent="Yes" OffContent="No"/>
+                                                </Grid>
+                                            </Border>
                                         </StackPanel>
-                                        
-                                        <Border Background="#1F222F" Height="1"/>
+                                    </Expander>
+                                </StackPanel>
+                            </StackPanel>
+                        </ScrollViewer>
 
-                                        <!-- Backdrop Outline Size -->
+                        <!-- Page 04: Subtitles & Typography -->
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel Spacing="16">
+                                <TextBlock Text="[04] SUBTITLES &amp; TYPOGRAPHY" Foreground="#2B88FF" FontSize="12" FontWeight="Bold" LetterSpacing="0.8"/>
+                                <StackPanel Spacing="12">
+                                    <!-- Font Family -->
+                                    <Border Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="8" Padding="16">
+                                        <StackPanel Spacing="8">
+                                            <TextBlock Text="Global Subtitle Font Family" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
+                                            <ComboBox Name="SubtitleFontComboBox" HorizontalAlignment="Stretch" Background="#0C0C12" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="4" Padding="10,6" FontSize="11" Foreground="#C5CEE3"/>
+                                            <TextBlock Text="Overrides subtitle font family system-wide." Foreground="#5C647C" FontSize="10" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Border Outline Size -->
+                                    <Border Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="8" Padding="16">
                                         <StackPanel Spacing="6">
                                             <Grid ColumnDefinitions="*,Auto">
                                                 <TextBlock Text="Subtitle Border Outline Size" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
@@ -853,10 +879,10 @@
                                             </Grid>
                                             <Slider Name="SubBorderSizeSlider" Minimum="0" Maximum="8" Value="3" SmallChange="0.5" LargeChange="1.0"/>
                                         </StackPanel>
-                                        
-                                        <Border Background="#1F222F" Height="1"/>
+                                    </Border>
 
-                                        <!-- Backdrop Shadow Size -->
+                                    <!-- Drop Shadow Offset -->
+                                    <Border Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="8" Padding="16">
                                         <StackPanel Spacing="6">
                                             <Grid ColumnDefinitions="*,Auto">
                                                 <TextBlock Text="Subtitle Drop Shadow Offset" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
@@ -864,53 +890,55 @@
                                             </Grid>
                                             <Slider Name="SubShadowOffsetSlider" Minimum="0" Maximum="8" Value="1" SmallChange="0.5" LargeChange="1.0"/>
                                         </StackPanel>
-                                    </StackPanel>
-                                </Border>
+                                    </Border>
+                                </StackPanel>
                             </StackPanel>
+                        </ScrollViewer>
 
-                            <!-- Section 05: Interface Styling & OSD HUD Layout -->
-                            <StackPanel Name="SectionUi" Spacing="16">
-                                <TextBlock Text="[05] INTERFACE STYLING &amp; OSD HUD LAYOUT" Foreground="#2B88FF" FontSize="12" FontWeight="Bold" LetterSpacing="0.8"/>
-                                <Border Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="8" Padding="16">
-                                    <StackPanel Spacing="16">
-                                        <!-- Default Workspace Tab -->
-                                        <StackPanel Spacing="6">
+                        <!-- Page 05: User Interface & HUD -->
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel Spacing="16">
+                                <TextBlock Text="[05] USER INTERFACE &amp; HUD" Foreground="#2B88FF" FontSize="12" FontWeight="Bold" LetterSpacing="0.8"/>
+                                <StackPanel Spacing="12">
+                                    <!-- Default Drawer Workspace Tab -->
+                                    <Border Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="8" Padding="16">
+                                        <StackPanel Spacing="8">
                                             <TextBlock Text="Default Drawer Workspace Tab" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
                                             <ComboBox Name="DefaultWorkspaceTabComboBox" HorizontalAlignment="Stretch" Background="#0C0C12" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="4" Padding="10,6" FontSize="11" Foreground="#C5CEE3">
                                                 <ComboBoxItem Content="Queue"/>
                                                 <ComboBoxItem Content="Directory"/>
                                                 <ComboBoxItem Content="Engine"/>
                                             </ComboBox>
-                                            <TextBlock Text="Choose which section of the sliding side panel is selected when starting the application." Foreground="#5C647C" FontSize="10"/>
+                                            <TextBlock Text="Choose which section of the sliding side panel is selected when starting the application." Foreground="#5C647C" FontSize="10" TextWrapping="Wrap"/>
                                         </StackPanel>
-                                        
-                                        <Border Background="#1F222F" Height="1"/>
+                                    </Border>
 
-                                        <!-- Layout Mode Switch -->
+                                    <!-- Tactical Deck Layout Mode -->
+                                    <Border Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="8" Padding="16">
                                         <Grid ColumnDefinitions="*,Auto">
-                                            <StackPanel Spacing="3" Margin="0,0,16,0">
+                                            <StackPanel Spacing="4" Margin="0,0,16,0">
                                                 <TextBlock Text="Tactical Deck Layout Mode" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
                                                 <TextBlock Text="Enable the dual-row Tactical Deck control interface instead of the minimalist Stealth Rail." Foreground="#5C647C" FontSize="10" TextWrapping="Wrap"/>
                                             </StackPanel>
                                             <ToggleSwitch Grid.Column="1" Name="TacticalDeckToggle" OnContent="Yes" OffContent="No"/>
                                         </Grid>
-                                        
-                                        <Border Background="#1F222F" Height="1"/>
+                                    </Border>
 
-                                        <!-- Display System Clock Toggle -->
+                                    <!-- Display System Clock -->
+                                    <Border Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="8" Padding="16">
                                         <Grid ColumnDefinitions="*,Auto">
-                                            <StackPanel Spacing="3" Margin="0,0,16,0">
+                                            <StackPanel Spacing="4" Margin="0,0,16,0">
                                                 <TextBlock Text="Display System Clock" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
                                                 <TextBlock Text="Shows a real-world system clock in the transport bar time display." Foreground="#5C647C" FontSize="10" TextWrapping="Wrap"/>
                                             </StackPanel>
                                             <ToggleSwitch Grid.Column="1" Name="ShowSystemClockToggle" OnContent="Yes" OffContent="No"/>
                                         </Grid>
-                                        
-                                        <Border Background="#1F222F" Height="1"/>
+                                    </Border>
 
-                                        <!-- System Clock Format Selector -->
+                                    <!-- System Clock Format (Conditional Card) -->
+                                    <Border Name="ClockFormatCard" Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="8" Padding="16">
                                         <Grid ColumnDefinitions="*,Auto">
-                                            <StackPanel Spacing="3" Margin="0,0,16,0">
+                                            <StackPanel Spacing="4" Margin="0,0,16,0">
                                                 <TextBlock Text="System Clock Format" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
                                                 <TextBlock Text="Toggle between 24-hour style format and 12-hour AM/PM format." Foreground="#5C647C" FontSize="10" TextWrapping="Wrap"/>
                                             </StackPanel>
@@ -919,33 +947,33 @@
                                                 <ComboBoxItem Content="12-Hour (h:mm tt)"/>
                                             </ComboBox>
                                         </Grid>
+                                    </Border>
 
-                                        <Border Background="#1F222F" Height="1"/>
-
-                                        <!-- Performance Stabilizer OSD Notifications -->
+                                    <!-- Display Performance Alerts -->
+                                    <Border Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="8" Padding="16">
                                         <Grid ColumnDefinitions="*,Auto">
-                                            <StackPanel Spacing="3" Margin="0,0,16,0">
-                                                <TextBlock Text="Disable Performance Stabilizer OSD Warning Popups" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
-                                                <TextBlock Text="Hides top slide-in warnings when rendering limits are exceeded and performance rules scale down settings." Foreground="#5C647C" FontSize="10" TextWrapping="Wrap"/>
+                                            <StackPanel Spacing="4" Margin="0,0,16,0">
+                                                <TextBlock Text="Display Performance Alerts" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
+                                                <TextBlock Text="Shows top slide-in notifications when rendering limits are exceeded." Foreground="#5C647C" FontSize="10" TextWrapping="Wrap"/>
                                             </StackPanel>
-                                            <ToggleSwitch Grid.Column="1" Name="DisableOsdNotificationsToggle" OnContent="Yes" OffContent="No"/>
+                                            <ToggleSwitch Grid.Column="1" Name="ShowOsdNotificationsToggle" OnContent="Yes" OffContent="No" IsChecked="True"/>
                                         </Grid>
-                                        
-                                        <Border Background="#1F222F" Height="1"/>
+                                    </Border>
 
-                                        <!-- Timeline Seeking Previews -->
+                                    <!-- Disable Timeline Seeking Previews -->
+                                    <Border Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="8" Padding="16">
                                         <Grid ColumnDefinitions="*,Auto">
-                                            <StackPanel Spacing="3" Margin="0,0,16,0">
+                                            <StackPanel Spacing="4" Margin="0,0,16,0">
                                                 <TextBlock Text="Disable Timeline Seeking Previews" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
                                                 <TextBlock Text="Disables rendering video preview frames when hovering over the seek timeline bar to conserve CPU/GPU." Foreground="#5C647C" FontSize="10" TextWrapping="Wrap"/>
                                             </StackPanel>
                                             <ToggleSwitch Grid.Column="1" Name="DisableSeekingPreviewsToggle" OnContent="Yes" OffContent="No"/>
                                         </Grid>
-                                    </StackPanel>
-                                </Border>
+                                    </Border>
+                                </StackPanel>
                             </StackPanel>
-                        </StackPanel>
-                    </ScrollViewer>
+                        </ScrollViewer>
+                    </Carousel>
                 </Grid>
             </Grid>
 
