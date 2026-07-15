@@ -30,12 +30,15 @@ public class MpvVideoSurface : NativeControlHost
 
     protected override IPlatformHandle CreateNativeControlCore(IPlatformHandle parent)
     {
+        BlueJayPlayer.Views.PipLogger.Log("MpvVideoSurface: CreateNativeControlCore started");
         var handle = base.CreateNativeControlCore(parent);
         if (handle != null)
         {
+            BlueJayPlayer.Views.PipLogger.Log($"MpvVideoSurface: CreateNativeControlCore succeeded, handle = {handle.Handle}");
             HandleReady?.Invoke(handle.Handle);
             return handle;
         }
+        BlueJayPlayer.Views.PipLogger.Log("MpvVideoSurface: CreateNativeControlCore failed");
         throw new InvalidOperationException("Failed to create native control platform handle.");
     }
 
@@ -65,6 +68,7 @@ public class MpvVideoSurface : NativeControlHost
     private void InitializeNativeOverlay()
     {
         if (_parentWindow == null) return;
+        BlueJayPlayer.Views.PipLogger.Log($"MpvVideoSurface: InitializeNativeOverlay started, parentWindow = {_parentWindow.GetType().Name}");
 
         _overlayWindow = new Window
         {
@@ -77,7 +81,8 @@ public class MpvVideoSurface : NativeControlHost
             Focusable = false
         };
 
-        _overlayWindow.Bind(Window.CursorProperty, _parentWindow.GetObservable(Window.CursorProperty));
+        _overlayWindow.Topmost = _parentWindow.Topmost;
+
         _overlayWindow.Bind(ContentControl.ContentProperty, this.GetObservable(ContentProperty));
 
         DragDrop.SetAllowDrop(_overlayWindow, true);
@@ -91,6 +96,7 @@ public class MpvVideoSurface : NativeControlHost
         _overlayWindow.KeyDown += OnOverlayKeyDown;
 
         _overlayWindow.Show(_parentWindow);
+        BlueJayPlayer.Views.PipLogger.Log("MpvVideoSurface: OverlayWindow shown");
         SyncOverlayGeometry();
     }
 
@@ -120,6 +126,35 @@ public class MpvVideoSurface : NativeControlHost
     private void OnOverlayPointerMoved(object? sender, PointerEventArgs e)
     {
         RaiseEvent(e);
+
+        if (_overlayWindow != null && _parentWindow != null)
+        {
+            if (_parentWindow.WindowState == WindowState.Maximized || _parentWindow.WindowState == WindowState.FullScreen)
+            {
+                _overlayWindow.Cursor = _parentWindow.Cursor;
+                return;
+            }
+
+            var point = e.GetPosition(this);
+            double w = this.Bounds.Width;
+            double h = this.Bounds.Height;
+            double margin = 12.0;
+
+            bool left = point.X < margin;
+            bool right = point.X > w - margin;
+            bool top = point.Y < margin;
+            bool bottom = point.Y > h - margin;
+
+            if (top && left) _overlayWindow.Cursor = new Cursor(StandardCursorType.TopLeftCorner);
+            else if (top && right) _overlayWindow.Cursor = new Cursor(StandardCursorType.TopRightCorner);
+            else if (bottom && left) _overlayWindow.Cursor = new Cursor(StandardCursorType.BottomLeftCorner);
+            else if (bottom && right) _overlayWindow.Cursor = new Cursor(StandardCursorType.BottomRightCorner);
+            else if (top) _overlayWindow.Cursor = new Cursor(StandardCursorType.TopSide);
+            else if (bottom) _overlayWindow.Cursor = new Cursor(StandardCursorType.BottomSide);
+            else if (left) _overlayWindow.Cursor = new Cursor(StandardCursorType.LeftSide);
+            else if (right) _overlayWindow.Cursor = new Cursor(StandardCursorType.RightSide);
+            else _overlayWindow.Cursor = _parentWindow.Cursor;
+        }
     }
 
     private void OnOverlayDoubleTapped(object? sender, TappedEventArgs e)
@@ -140,7 +175,58 @@ public class MpvVideoSurface : NativeControlHost
     private void OnOverlayPointerPressed(object? sender, PointerEventArgs e)
     {
         _parentWindow?.Activate();
-        // Let overlay content handle presses natively — do not forward to parent
+        
+        if (e is PointerPressedEventArgs pressedEvt)
+        {
+            var source = pressedEvt.Source as Avalonia.Visual;
+            bool isInteractive = false;
+            while (source != null && source != _overlayWindow)
+            {
+                if (source is Button || source is Slider)
+                {
+                    isInteractive = true;
+                    break;
+                }
+                source = source.GetVisualParent();
+            }
+
+            if (!isInteractive && pressedEvt.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            {
+                if (_parentWindow != null && _parentWindow.WindowState != WindowState.Maximized && _parentWindow.WindowState != WindowState.FullScreen)
+                {
+                    var point = pressedEvt.GetPosition(this);
+                    double w = this.Bounds.Width;
+                    double h = this.Bounds.Height;
+                    double margin = 12.0;
+
+                    bool left = point.X < margin;
+                    bool right = point.X > w - margin;
+                    bool top = point.Y < margin;
+                    bool bottom = point.Y > h - margin;
+
+                    if (left || right || top || bottom)
+                    {
+                        WindowEdge? edge = null;
+                        if (top && left) edge = WindowEdge.NorthWest;
+                        else if (top && right) edge = WindowEdge.NorthEast;
+                        else if (bottom && left) edge = WindowEdge.SouthWest;
+                        else if (bottom && right) edge = WindowEdge.SouthEast;
+                        else if (top) edge = WindowEdge.North;
+                        else if (bottom) edge = WindowEdge.South;
+                        else if (left) edge = WindowEdge.West;
+                        else if (right) edge = WindowEdge.East;
+
+                        if (edge.HasValue)
+                        {
+                            _parentWindow.BeginResizeDrag(edge.Value, pressedEvt);
+                            return;
+                        }
+                    }
+                }
+
+                _parentWindow?.BeginMoveDrag(pressedEvt);
+            }
+        }
     }
 
     private void OnOverlayPointerReleased(object? sender, PointerEventArgs e)
@@ -198,6 +284,7 @@ public class MpvVideoSurface : NativeControlHost
 
     private void TeardownOverlay()
     {
+        BlueJayPlayer.Views.PipLogger.Log("MpvVideoSurface: TeardownOverlay started");
         if (_parentWindow != null)
         {
             _parentWindow.PositionChanged -= OnParentWindowMoved;
@@ -219,6 +306,7 @@ public class MpvVideoSurface : NativeControlHost
             _overlayWindow.Content = null;
             _overlayWindow.Close();
             _overlayWindow = null;
+            BlueJayPlayer.Views.PipLogger.Log("MpvVideoSurface: OverlayWindow closed and set to null");
         }
     }
 }

@@ -168,6 +168,12 @@ public partial class MainWindow : Window
     private Border? _seekPreviewCard;
     private Panel? _audioModeOverlay;
     private TextBlock? _audioModeTrackTitle;
+    private PipWindow? _pipWindow;
+    private bool _isPipActive;
+    private Control? _pipActivePlaceholder;
+    private Button? _returnFromPipButton;
+    private Button? _singlePipButton;
+    private Button? _deckPipButton;
 
     // Phase 3 state fields
     private System.Collections.ObjectModel.ObservableCollection<QueueItemViewModel> _playbackQueueItems = new();
@@ -580,6 +586,11 @@ public partial class MainWindow : Window
         _videoTitleOverlay = FindInTree<Border>(hudPanel, "VideoTitleOverlay");
         _videoTitleText    = FindInTree<TextBlock>(hudPanel, "VideoTitleText");
 
+        _pipActivePlaceholder = this.FindControl<Control>("PipActivePlaceholder");
+        _returnFromPipButton  = this.FindControl<Button>("ReturnFromPipButton");
+        _singlePipButton      = FindInTree<Button>(hudPanel, "SinglePipButton");
+        _deckPipButton        = FindInTree<Button>(hudPanel, "DeckPipButton");
+
         _statsOverlayCard        = FindInTree<Border>(hudPanel, "StatsOverlayCard");
         _statsTextPanel          = FindInTree<TextBlock>(hudPanel, "StatsTextPanel");
         _overlayResizeGrid = FindInTree<Grid>(hudPanel, "OverlayResizeGrid");
@@ -730,6 +741,12 @@ public partial class MainWindow : Window
         foreach (var fsBtn in fullscreenBtns)
         {
             fsBtn!.Click += (_, _) => ToggleFullscreen();
+        }
+
+        var pipBtns = new Button?[] { _singlePipButton, _deckPipButton, _returnFromPipButton }.Where(x => x != null);
+        foreach (var pipBtn in pipBtns)
+        {
+            pipBtn!.Click += (_, _) => TogglePip();
         }
 
         var deckSkipBackBtn = hudRoot != null ? FindInTree<Button>(hudRoot, "DeckSkipBackButton") : null;
@@ -943,6 +960,36 @@ public partial class MainWindow : Window
                 else if (mpvEvent.EventId == 8) // MPV_EVENT_FILE_LOADED
                 {
                     Log("RunEventLoop: MPV_EVENT_FILE_LOADED received.");
+
+                    if (_isPipActive && _pipWindow != null)
+                    {
+                        double aspect = GetMpvPropertyDouble("video-params/aspect");
+                        if (!double.IsNaN(aspect) && !double.IsInfinity(aspect) && aspect > 0)
+                        {
+                            Dispatcher.UIThread.Post(() =>
+                            {
+                                if (_pipWindow != null)
+                                {
+                                    _pipWindow.AspectRatio = aspect;
+                                }
+                            });
+                        }
+
+                        if (_pipWindow.ChildSurfaceHandle != IntPtr.Zero)
+                        {
+                            IntPtr localMpv = _mpvHandle;
+                            IntPtr localSurface = _pipWindow.ChildSurfaceHandle;
+                            Task.Run(() =>
+                            {
+                                if (localMpv != IntPtr.Zero && localSurface != IntPtr.Zero)
+                                {
+                                    SetMpvPropertyString(localMpv, "wid", localSurface.ToString());
+                                    Log($"RunEventLoop (FILE_LOADED): Re-asserted PiP wid: {localSurface}");
+                                    PipLogger.Log($"RunEventLoop (FILE_LOADED): Re-asserted PiP wid: {localSurface}");
+                                }
+                            });
+                        }
+                    }
 
                     // Reset badges on UI thread
                     Dispatcher.UIThread.Post(() =>
@@ -1549,6 +1596,12 @@ public partial class MainWindow : Window
 
             foreach (var txt in _totalDurationTexts)
                 txt.Text = durationDisplay;
+
+            if (_isPipActive && _pipWindow != null)
+            {
+                string mediaTitle = Path.GetFileName(_currentLoadedFilePath ?? "BlueJay Media Stream");
+                _pipWindow.UpdateTime(current, total, mediaTitle);
+            }
         });
     }
 
@@ -1579,6 +1632,7 @@ public partial class MainWindow : Window
         {
             foreach (var icon in _playPauseIcons)
                 icon.Data = StreamGeometry.Parse(_isPaused ? PlaySvg : PauseSvg);
+            _pipWindow?.UpdatePlayState(!_isPaused);
         });
     }
 
@@ -1968,6 +2022,13 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (e.Key == Key.P)
+        {
+            e.Handled = true;
+            TogglePip();
+            return;
+        }
+
         if (e.Key == Key.I)
         {
             e.Handled = true;
@@ -2133,6 +2194,13 @@ public partial class MainWindow : Window
     protected override void OnClosing(WindowClosingEventArgs e)
     {
         Log("MainWindow closing detected. Initiating native engine teardown sequence...");
+
+        if (_pipWindow != null)
+        {
+            _pipWindow.IsShuttingDown = true;
+            _pipWindow.Close();
+            _pipWindow = null;
+        }
 
         // Save settings on exit
         SaveSettings();
@@ -3687,6 +3755,126 @@ public partial class MainWindow : Window
                 }
             }
         });
+    }
+
+    private void TogglePip()
+    {
+        if (_isPipActive)
+        {
+            RedockFromPip();
+        }
+        else
+        {
+            HandoffToPip();
+        }
+    }
+
+    private void HandoffToPip()
+    {
+        if (_mpvHandle == IntPtr.Zero || !_isEngineInitialized) return;
+        if (!string.IsNullOrEmpty(_currentLoadedFilePath) && IsAudioFile(Path.GetExtension(_currentLoadedFilePath)))
+        {
+            Log("HandoffToPip: Suppressed for audio-only track.");
+            return;
+        }
+
+        if (_pipWindow == null)
+        {
+            _pipWindow = new PipWindow();
+            _pipWindow.RedockRequested += (s, e) => Dispatcher.UIThread.Post(() => RedockFromPip());
+            _pipWindow.TogglePlayPauseRequested += (s, e) => Dispatcher.UIThread.Post(() => TogglePlayPause());
+            _pipWindow.SkipBackwardRequested += (s, e) => Dispatcher.UIThread.Post(() =>
+            {
+                if (_mpvHandle != IntPtr.Zero) SendCommand(_mpvHandle, "seek", "-10", "relative");
+            });
+            _pipWindow.SkipForwardRequested += (s, e) => Dispatcher.UIThread.Post(() =>
+            {
+                if (_mpvHandle != IntPtr.Zero) SendCommand(_mpvHandle, "seek", "10", "relative");
+            });
+            _pipWindow.SeekRequested += (s, pos) =>
+            {
+                IntPtr localMpv = _mpvHandle;
+                Task.Run(() =>
+                {
+                    if (localMpv != IntPtr.Zero)
+                    {
+                        SendCommand(localMpv, "seek", pos.ToString(System.Globalization.CultureInfo.InvariantCulture), "absolute");
+                        Log($"HandoffToPip SeekRequested: Seeked to {pos} seconds");
+                        PipLogger.Log($"HandoffToPip SeekRequested: Seeked to {pos} seconds");
+                    }
+                });
+            };
+            _pipWindow.SurfaceHandleReady = (childHwnd) =>
+            {
+                if (_mpvHandle != IntPtr.Zero && childHwnd != IntPtr.Zero)
+                {
+                    IntPtr localMpv = _mpvHandle;
+                    Task.Run(() =>
+                    {
+                        if (localMpv != IntPtr.Zero)
+                        {
+                            SetMpvPropertyString(localMpv, "wid", childHwnd.ToString());
+                            Log($"HandoffToPip: Re-parented mpv rendering target to child surface HWND {childHwnd}");
+                            PipLogger.Log($"HandoffToPip Callback: Re-parented mpv rendering target to child surface HWND {childHwnd}");
+                        }
+                    });
+                }
+            };
+        }
+
+        double aspect = GetMpvPropertyDouble("video-params/aspect");
+        if (double.IsNaN(aspect) || double.IsInfinity(aspect) || aspect <= 0)
+        {
+            aspect = 16.0 / 9.0;
+        }
+        _pipWindow.AspectRatio = aspect;
+
+        string fileTitle = Path.GetFileName(_currentLoadedFilePath ?? "BlueJay Media Stream");
+        _pipWindow.UpdatePlayState(!_isPaused);
+        _pipWindow.UpdateTime(_playbackPosition, _playbackDuration, fileTitle);
+
+        _pipWindow.Show();
+
+        // Unconditional handoff for subsequent plays (cached window reuse)
+        if (_pipWindow.ChildSurfaceHandle != IntPtr.Zero)
+        {
+            IntPtr localMpv = _mpvHandle;
+            IntPtr localSurface = _pipWindow.ChildSurfaceHandle;
+            Task.Run(() =>
+            {
+                if (localMpv != IntPtr.Zero && localSurface != IntPtr.Zero)
+                {
+                    SetMpvPropertyString(localMpv, "wid", localSurface.ToString());
+                    Log($"HandoffToPip (Unconditional): Re-parented mpv rendering target to cached surface HWND {localSurface}");
+                    PipLogger.Log($"HandoffToPip Unconditional: Re-parented mpv rendering target to cached surface HWND {localSurface}");
+                }
+            });
+        }
+
+        if (_videoSurface != null) _videoSurface.IsVisible = false;
+        if (_pipActivePlaceholder != null) _pipActivePlaceholder.IsVisible = true;
+        _isPipActive = true;
+    }
+
+    private void RedockFromPip()
+    {
+        if (_mpvHandle == IntPtr.Zero || !_isEngineInitialized) return;
+
+        if (_cachedHwnd != IntPtr.Zero)
+        {
+            SetMpvPropertyString(_mpvHandle, "wid", _cachedHwnd.ToString());
+            Log($"RedockFromPip: Successfully re-parented video rendering surface back to main HWND {_cachedHwnd}");
+        }
+
+        if (_pipActivePlaceholder != null) _pipActivePlaceholder.IsVisible = false;
+        if (_videoSurface != null) _videoSurface.IsVisible = true;
+        _isPipActive = false;
+
+        if (_pipWindow != null)
+        {
+            _pipWindow.Hide();
+        }
+        this.Focus();
     }
 
     private void PlayPreviousInQueue()

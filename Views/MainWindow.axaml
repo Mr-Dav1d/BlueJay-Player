@@ -39,7 +39,8 @@
             </Border>
 
             <Panel Grid.Row="1" Grid.Column="0" Name="MainDropPanel" Background="Transparent" DragDrop.AllowDrop="True">
-                <controls:MpvVideoSurface Name="VideoSurface">
+                <Grid Name="VideoViewportContainer">
+                    <controls:MpvVideoSurface Name="VideoSurface">
                     <Panel Background="Transparent" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
 
                         <!-- Idle Logo Splash (visible when no media is playing) -->
@@ -193,7 +194,7 @@
                             </Border.Transitions>
 
                             <Grid RowDefinitions="*">
-                                <Grid Grid.Row="0" Name="SingleLineLayout" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" VerticalAlignment="Center">
+                                <Grid Grid.Row="0" Name="SingleLineLayout" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" VerticalAlignment="Center">
                                     <Button Grid.Column="0" Name="SinglePlayPauseButton" Classes="transport-btn" ToolTip.Tip="Play / Pause">
                                         <PathIcon Name="SinglePlayPauseIcon" Data="M8 5v14l11-7z" Width="12" Height="12"/>
                                     </Button>
@@ -241,13 +242,16 @@
                                                        HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-4,-3"/>
                                         </Grid>
                                     </Button>
-                                    <Button Grid.Column="8" Name="SingleFullscreenButton" Classes="transport-btn" ToolTip.Tip="Toggle Fullscreen (F)">
+                                    <Button Grid.Column="8" Name="SinglePipButton" Classes="transport-btn" ToolTip.Tip="Picture in Picture (P)">
+                                        <PathIcon Data="M19 11h-8v6h8v-6zm4-7H1c-.55 0-1 .45-1 1v14c0 .55.45 1 1 1h22c.55 0 1-.45 1-1V5c0-.55-.45-1-1-1zm-2 14H3V7h18v11z" Width="12" Height="12"/>
+                                    </Button>
+                                    <Button Grid.Column="9" Name="SingleFullscreenButton" Classes="transport-btn" ToolTip.Tip="Toggle Fullscreen (F)">
                                         <PathIcon Name="SingleFullscreenIcon" Data="M5 5h5v2H7v3H5V5zm14 0h-5v2h3v3h2V5zM5 19h5v-2H7v-3H5v5zm14 0h-5v-2h3v-3h2v5z" Width="12" Height="12"/>
                                     </Button>
                                     
                                     <!-- Panel Group -->
-                                    <Border Grid.Column="9" Width="1" Height="12" Background="#1F222F" Margin="6,0,6,0" VerticalAlignment="Center"/>
-                                    <Button Grid.Column="10" Name="SingleSidePanelButton" Classes="transport-btn" ToolTip.Tip="Toggle Side Panel">
+                                    <Border Grid.Column="10" Width="1" Height="12" Background="#1F222F" Margin="6,0,6,0" VerticalAlignment="Center"/>
+                                    <Button Grid.Column="11" Name="SingleSidePanelButton" Classes="transport-btn" ToolTip.Tip="Toggle Side Panel">
                                         <PathIcon Data="M3 4h18v2H3V4zm0 5h18v2H3V9zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" Width="12" Height="12"/>
                                     </Button>
                                 </Grid>
@@ -337,7 +341,22 @@
 
                     </Panel>
                 </controls:MpvVideoSurface>
-            </Panel>
+
+                <!-- PiP Active Placeholder Grid (shown when VideoSurface is detached to PiP) -->
+                <Grid Name="PipActivePlaceholder" IsVisible="False" Background="#0C0C12" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="16">
+                        <Border Width="80" Height="80" CornerRadius="40" Background="#131622" BorderBrush="#00D2FF" BorderThickness="2" HorizontalAlignment="Center">
+                            <PathIcon Data="M19 11h-8v6h8v-6zm4-7H1c-.55 0-1 .45-1 1v14c0 .55.45 1 1 1h22c.55 0 1-.45 1-1V5c0-.55-.45-1-1-1zm-2 14H3V7h18v11z" Width="36" Height="36" Foreground="#00D2FF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel Spacing="4" HorizontalAlignment="Center">
+                            <TextBlock Text="Playing in Picture-in-Picture" Foreground="#FFFFFF" FontSize="18" FontWeight="Bold" FontFamily="Segoe UI" HorizontalAlignment="Center"/>
+                            <TextBlock Text="Video playback detached to floating window" Foreground="#8A94A6" FontSize="12" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                        <Button Name="ReturnFromPipButton" Content="Re-dock Video" Classes="primary-btn" Width="140" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Panel>
 
             <!-- Dynamic Side Panel (Sliding Drawer) -->
             <Border Grid.Row="1" Grid.Column="1" Name="DynamicSidePanel" Width="0" Background="#0C0C12" BorderBrush="#1F222F" BorderThickness="1,0,0,0">

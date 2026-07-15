@@ -1,0 +1,169 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:BlueJayPlayer.Controls"
+        x:Class="BlueJayPlayer.Views.PipWindow"
+        Title="BlueJay Player - Picture in Picture"
+        Width="480" Height="270"
+        MinWidth="280" MinHeight="160"
+        Background="Transparent"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
+        CanResize="True"
+        Topmost="True"
+        WindowStartupLocation="CenterScreen">
+
+    <Window.Styles>
+        <Style Selector="Button.pip-icon-btn">
+            <Setter Property="Background" Value="#8009090E"/>
+            <Setter Property="BorderBrush" Value="#26FFFFFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.1"/>
+                    <BrushTransition Property="Background" Duration="0:0:0.1"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.pip-icon-btn:pointerover">
+            <Setter Property="Background" Value="#CC141E30"/>
+            <Setter Property="BorderBrush" Value="#00D2FF"/>
+            <Setter Property="RenderTransform" Value="scale(1.08)"/>
+        </Style>
+
+        <Style Selector="Button.pip-play-btn">
+            <Setter Property="Background" Value="#D90D1626"/>
+            <Setter Property="BorderBrush" Value="#00D2FF"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="CornerRadius" Value="24"/>
+            <Setter Property="Width" Value="48"/>
+            <Setter Property="Height" Value="48"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.12"/>
+                    <BrushTransition Property="Background" Duration="0:0:0.12"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.pip-play-btn:pointerover">
+            <Setter Property="Background" Value="#FF142540"/>
+            <Setter Property="BorderBrush" Value="#66E0FF"/>
+            <Setter Property="RenderTransform" Value="scale(1.1)"/>
+        </Style>
+    </Window.Styles>
+
+    <Border Name="PipWindowBorder" CornerRadius="8" ClipToBounds="True" Background="#000000" BorderBrush="#1F222F" BorderThickness="1">
+        <Grid Name="PipRootGrid" Background="#000000">
+
+            <!-- Native video surface host with floating transparent overlay content -->
+            <controls:MpvVideoSurface Name="PipVideoSurface">
+                <controls:MpvVideoSurface.Content>
+                    <!-- Hover Controls Overlay Layer -->
+                    <Grid Name="HoverControlHud" Opacity="0.0" Background="#9907070B" IsHitTestVisible="True"
+                          PointerEntered="OnHudPointerEntered" PointerExited="OnHudPointerExited">
+                        <Grid.Transitions>
+                            <Transitions>
+                                <DoubleTransition Property="Opacity" Duration="0:0:0.2"/>
+                            </Transitions>
+                        </Grid.Transitions>
+
+                        <Grid RowDefinitions="Auto,*,Auto" Margin="12,10">
+
+                            <!-- Top Bar: Title & Close Button -->
+                            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                                <TextBlock Grid.Column="0" Name="PipTitleText"
+                                           Text="BlueJay Media Stream"
+                                           Foreground="#F0F4FC"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           FontFamily="Segoe UI"
+                                           TextTrimming="CharacterEllipsis"
+                                           VerticalAlignment="Center"
+                                           Margin="4,0,12,0"/>
+
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                    <Button Name="PipRedockButton" Classes="pip-icon-btn" ToolTip.Tip="Re-dock to Main Window">
+                                        <PathIcon Data="M19 11h-8v6h8v-6zm4-7H1c-.55 0-1 .45-1 1v14c0 .55.45 1 1 1h22c.55 0 1-.45 1-1V5c0-.55-.45-1-1-1zm-2 14H3V7h18v11z" Width="13" Height="13" Foreground="#00D2FF"/>
+                                    </Button>
+
+                                    <Button Name="PipCloseButton" Classes="pip-icon-btn" ToolTip.Tip="Close PiP">
+                                        <PathIcon Data="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" Width="11" Height="11" Foreground="#FFFFFF"/>
+                                    </Button>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Center Action Cluster: Skip -10s | Play/Pause | Skip +10s -->
+                            <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16">
+                                <Button Name="PipSkipBack10Button" Classes="pip-icon-btn" ToolTip.Tip="Skip back 10s">
+                                    <PathIcon Data="M11 6l-6 6 6 6V6zm7 0l-6 6 6 6V6z" Width="14" Height="14" Foreground="#F0F4FC"/>
+                                </Button>
+
+                                <Button Name="PipPlayPauseButton" Classes="pip-play-btn" ToolTip.Tip="Play / Pause">
+                                    <PathIcon Name="PipPlayPauseIcon" Data="M8 5v14l11-7z" Width="18" Height="18" Foreground="#00D2FF"/>
+                                </Button>
+
+                                <Button Name="PipSkipForward10Button" Classes="pip-icon-btn" ToolTip.Tip="Skip forward 10s">
+                                    <PathIcon Data="M6 18l6-6-6-6v12zm7 0l6-6-6-6v12z" Width="14" Height="14" Foreground="#F0F4FC"/>
+                                </Button>
+                            </StackPanel>
+
+                            <!-- Bottom Bar: Timeline Rail & Time Stamp -->
+                            <StackPanel Grid.Row="2" VerticalAlignment="Bottom" Margin="12,0,12,12" Spacing="4">
+                                <TextBlock Name="PipTimeText"
+                                           Text="00:00 / 00:00"
+                                           Foreground="#A0A5C0"
+                                           FontSize="11"
+                                           FontFamily="Consolas"
+                                           HorizontalAlignment="Right"/>
+                                <Slider Name="PipPlaybackSlider" Classes="playback" Focusable="False" Height="16">
+                                    <Slider.Styles>
+                                        <!-- High-Contrast Progress Cyan Track (Elapsed) -->
+                                        <Style Selector="Slider.playback RepeatButton.playback-track-decrease /template/ Border#DecreaseBorder">
+                                            <Setter Property="Background" Value="#00D2FF"/>
+                                        </Style>
+                                        <!-- Distinct Charcoal-Gray Track (Remaining) -->
+                                        <Style Selector="Slider.playback RepeatButton.playback-track-increase /template/ Border#IncreaseBorder">
+                                            <Setter Property="Background" Value="#30354A"/>
+                                        </Style>
+                                        <!-- Circular 12x12px Cyan Thumb Knob Template (Hidden by default) -->
+                                        <Style Selector="Slider.playback Thumb.playback-thumb">
+                                            <Setter Property="Width" Value="12"/>
+                                            <Setter Property="Height" Value="12"/>
+                                            <Setter Property="Template">
+                                                <ControlTemplate>
+                                                    <Border Name="ThumbGrip" Width="12" Height="12" CornerRadius="6" Background="#00D2FF" Opacity="0">
+                                                        <Border.Transitions>
+                                                            <Transitions>
+                                                                <DoubleTransition Property="Opacity" Duration="0:0:0.1"/>
+                                                            </Transitions>
+                                                        </Border.Transitions>
+                                                    </Border>
+                                                </ControlTemplate>
+                                            </Setter>
+                                        </Style>
+                                        <!-- Smooth Hover Fade-In Trigger for the Thumb -->
+                                        <Style Selector="Slider.playback:pointerover /template/ Thumb.playback-thumb /template/ Border#ThumbGrip">
+                                            <Setter Property="Opacity" Value="1.0"/>
+                                        </Style>
+                                    </Slider.Styles>
+                                </Slider>
+                            </StackPanel>
+
+                        </Grid>
+                    </Grid>
+                </controls:MpvVideoSurface.Content>
+            </controls:MpvVideoSurface>
+
+        </Grid>
+    </Border>
+</Window>
