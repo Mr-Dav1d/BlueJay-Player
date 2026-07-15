@@ -12,93 +12,63 @@
         Background="Transparent">
 
     <Window.Styles>
+        <Style Selector="FlyoutPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+
         <Style Selector="Button.speed-preset">
-            <Setter Property="Background" Value="#101116"/>
-            <Setter Property="BorderBrush" Value="#1F222F"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="4"/>
-            <Setter Property="Padding" Value="4,2"/>
-            <Setter Property="Margin" Value="2"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="Foreground" Value="#8A92AD"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="FontSize" Value="10"/>
-            <Setter Property="FontFamily" Value="Consolas"/>
-            <Setter Property="Foreground" Value="#C5CEE3"/>
-            <Setter Property="Cursor" Value="Hand"/>
         </Style>
-        <Style Selector="Button.speed-preset:pointerover">
-            <Setter Property="Background" Value="#252538"/>
-            <Setter Property="BorderBrush" Value="#00D2FF"/>
+        
+        <!-- Strip background from the active template container -->
+        <Style Selector="Button.speed-preset /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="4"/>
+        </Style>
+        
+        <!-- Hover State: Elegant glowing cyan and subtle dark backplate -->
+        <Style Selector="Button.speed-preset:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#1C1E2A"/>
             <Setter Property="Foreground" Value="#00D2FF"/>
         </Style>
         
-        <Style Selector="Slider.speed-slider">
-            <Setter Property="Height" Value="20"/>
-            <Setter Property="Margin" Value="0,2,0,0"/>
-            <Setter Property="Background" Value="#1F222F"/>
+        <!-- Pressed State -->
+        <Style Selector="Button.speed-preset:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#2C2E3A"/>
             <Setter Property="Foreground" Value="#00D2FF"/>
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Grid Name="SliderContainer" VerticalAlignment="Center" Height="20">
-                        <Border Background="Transparent" VerticalAlignment="Stretch"/>
-                        <Border Name="TrackBackground" Height="2" VerticalAlignment="Center" CornerRadius="1" Background="{TemplateBinding Background}"/>
-                        <primitives:Track Name="PART_Track"
-                                          Minimum="{TemplateBinding Minimum}"
-                                          Maximum="{TemplateBinding Maximum}"
-                                          Value="{TemplateBinding Value, Mode=TwoWay}"
-                                          Orientation="Horizontal">
-                            <primitives:Track.DecreaseButton>
-                                <RepeatButton Name="PART_DecreaseButton" Focusable="False" IsHitTestVisible="False">
-                                    <RepeatButton.Template>
-                                        <ControlTemplate>
-                                            <Border Background="#00D2FF" Height="2" VerticalAlignment="Center" CornerRadius="1"/>
-                                        </ControlTemplate>
-                                    </RepeatButton.Template>
-                                </RepeatButton>
-                            </primitives:Track.DecreaseButton>
-                            <primitives:Track.IncreaseButton>
-                                <RepeatButton Name="PART_IncreaseButton" Focusable="False" IsHitTestVisible="False">
-                                    <RepeatButton.Template>
-                                        <ControlTemplate>
-                                            <Border Background="#1F222F" Height="2" VerticalAlignment="Center" CornerRadius="1"/>
-                                        </ControlTemplate>
-                                    </RepeatButton.Template>
-                                </RepeatButton>
-                            </primitives:Track.IncreaseButton>
-                            <primitives:Track.Thumb>
-                                <Thumb Name="PART_Thumb">
-                                    <Thumb.Template>
-                                        <ControlTemplate>
-                                            <Border Width="8" Height="8" CornerRadius="4" Background="#00D2FF" BorderBrush="#8000D2FF" BorderThickness="1"/>
-                                        </ControlTemplate>
-                                    </Thumb.Template>
-                                </Thumb>
-                            </primitives:Track.Thumb>
-                        </primitives:Track>
-                    </Grid>
-                </ControlTemplate>
-            </Setter>
         </Style>
 
         <Style Selector="TextBox.speed-textbox">
-            <Setter Property="Background" Value="#101116"/>
-            <Setter Property="BorderBrush" Value="#1F222F"/>
+            <Setter Property="Background" Value="#0A0A10"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="3"/>
-            <Setter Property="Padding" Value="4,1"/>
+            <Setter Property="BorderBrush" Value="#1F222F"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="4,2"/>
             <Setter Property="MinHeight" Value="0"/>
-            <Setter Property="Height" Value="20"/>
-            <Setter Property="Width" Value="50"/>
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="Width" Value="55"/>
             <Setter Property="FontSize" Value="10"/>
             <Setter Property="FontFamily" Value="Consolas"/>
             <Setter Property="Foreground" Value="#C5CEE3"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="CaretBrush" Value="#00D2FF"/>
-            <Setter Property="SelectionBrush" Value="#4000D2FF"/>
+            <Setter Property="SelectionBrush" Value="#3300D2FF"/>
+            <Setter Property="TextAlignment" Value="Center"/>
         </Style>
         <Style Selector="TextBox.speed-textbox:focus /template/ Border#PART_BorderElement">
-            <Setter Property="Background" Value="#151620"/>
+            <Setter Property="Background" Value="#0A0A10"/>
             <Setter Property="BorderBrush" Value="#00D2FF"/>
             <Setter Property="BorderThickness" Value="1"/>
         </Style>
@@ -328,35 +298,41 @@
                                     </Button>
 
                                     <!-- Speed Button -->
-                                    <Button Grid.Column="7" Name="SingleSpeedButton" Content="1.00x" Classes="control-button transport-btn" ToolTip.Tip="Playback Speed ( [ / ] )" PointerWheelChanged="OnSpeedButtonScroll" Padding="8,0" FontSize="11" FontFamily="Consolas">
+                                    <Button Grid.Column="7" Name="SingleSpeedButton" Content="1.00x" Classes="control-button transport-btn" ToolTip.Tip="Playback Speed ( [ / ] )" PointerWheelChanged="TransportSpeedLabel_PointerWheelChanged" Padding="8,0" FontSize="11" FontFamily="Consolas">
                                         <Button.Flyout>
-                                            <Flyout Placement="Bottom" ShowMode="Standard">
-                                                <Border Background="#E60C0C12" CornerRadius="8" BorderBrush="#1F222F" BorderThickness="1" Padding="12" Width="180">
-                                                    <StackPanel Spacing="10">
-                                                        <TextBlock Text="PLAYBACK SPEED" Foreground="#8A92AD" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center"/>
-                                                        
-                                                        <UniformGrid Columns="4" Rows="2" Margin="0,4">
-                                                            <Button Content="0.25" Classes="speed-preset" Tag="0.25" Click="OnSpeedPresetClick"/>
-                                                            <Button Content="0.5" Classes="speed-preset" Tag="0.5" Click="OnSpeedPresetClick"/>
-                                                            <Button Content="0.75" Classes="speed-preset" Tag="0.75" Click="OnSpeedPresetClick"/>
-                                                            <Button Content="1.0" Classes="speed-preset" Tag="1.0" Click="OnSpeedPresetClick"/>
-                                                            <Button Content="1.25" Classes="speed-preset" Tag="1.25" Click="OnSpeedPresetClick"/>
-                                                            <Button Content="1.5" Classes="speed-preset" Tag="1.5" Click="OnSpeedPresetClick"/>
-                                                            <Button Content="1.8" Classes="speed-preset" Tag="1.8" Click="OnSpeedPresetClick"/>
-                                                            <Button Content="2.0" Classes="speed-preset" Tag="2.0" Click="OnSpeedPresetClick"/>
-                                                        </UniformGrid>
+                                            <Flyout Placement="Bottom" ShowMode="Standard" Opened="SpeedFlyout_Opened">
+                                                <Border Background="#E60C0C12" CornerRadius="8" BorderBrush="#1F222F" BorderThickness="1" Padding="14" Width="260" BoxShadow="0 8 24 0 #40000000">
+                                                    <StackPanel Spacing="12">
+                                                        <TextBlock Text="Playback speed" FontSize="11" FontWeight="SemiBold"
+                                                                   Foreground="#8A8F9C" HorizontalAlignment="Center" Margin="0,0,0,12"/>
 
-                                                        <Border Height="1" Background="#1F222F" Margin="0,4"/>
+                                                        <TextBlock Name="SingleSpeedValueText" Text="1.00x" FontSize="32" FontWeight="Bold"
+                                                                   Foreground="#00D2FF" HorizontalAlignment="Center" Margin="0,0,0,16"/>
 
-                                                        <StackPanel Spacing="6">
-                                                            <Grid ColumnDefinitions="*,Auto">
-                                                                <TextBlock Text="Custom Speed" Foreground="#5C647C" FontSize="10" VerticalAlignment="Center"/>
-                                                                <TextBox Name="SingleCustomSpeedTextBox" Grid.Column="1" Classes="speed-textbox"
-                                                                         Text="1.00" KeyDown="OnCustomSpeedTextBoxKeyDown" LostFocus="OnCustomSpeedTextBoxLostFocus"/>
-                                                            </Grid>
-                                                            <Slider Name="SingleCustomSpeedSlider" Minimum="0.25" Maximum="4.0" Value="1.0" Classes="speed-slider"
-                                                                    PropertyChanged="OnCustomSpeedSliderPropertyChanged"/>
+                                                        <Slider Name="SingleSpeedSlider"
+                                                                Classes="playback"
+                                                                Minimum="0.25" Maximum="2.0"
+                                                                TickFrequency="0.05" IsSnapToTickEnabled="True"
+                                                                Value="1.0"
+                                                                ValueChanged="SpeedSlider_ValueChanged" Height="16"/>
+
+                                                        <Grid Margin="4,4,4,16" ColumnDefinitions="*,*,*,*,*">
+                                                            <TextBlock Grid.Column="0" Text="0.25x" FontSize="10" Foreground="#5A5F6C" HorizontalAlignment="Left"/>
+                                                            <TextBlock Grid.Column="1" Text="0.5x"  FontSize="10" Foreground="#5A5F6C" HorizontalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="2" Text="1x"    FontSize="10" Foreground="#5A5F6C" HorizontalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="3" Text="1.5x"  FontSize="10" Foreground="#5A5F6C" HorizontalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="4" Text="2x"    FontSize="10" Foreground="#5A5F6C" HorizontalAlignment="Right"/>
+                                                        </Grid>
+
+                                                        <StackPanel Name="SinglePresetPanel" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                                                            <Button Classes="speed-preset" Content="0.5x"   Tag="0.5" Click="SpeedPreset_Click"/>
+                                                            <Button Classes="speed-preset" Content="Normal" Tag="1.0" Click="SpeedPreset_Click"/>
+                                                            <Button Classes="speed-preset" Content="1.5x"   Tag="1.5" Click="SpeedPreset_Click"/>
+                                                            <Button Classes="speed-preset" Content="2x"     Tag="2.0" Click="SpeedPreset_Click"/>
                                                         </StackPanel>
+
+                                                        <Button Name="SingleResetSpeedButton" Content="Reset to normal" Classes="speed-reset-link"
+                                                                HorizontalAlignment="Center" Margin="0,12,0,0" IsVisible="False" Click="ResetSpeed_Click"/>
                                                     </StackPanel>
                                                 </Border>
                                             </Flyout>
@@ -438,35 +414,41 @@
                                             </Button>
                                             
                                             <!-- Speed Button -->
-                                            <Button Name="DeckSpeedButton" Content="1.00x" Classes="control-button transport-btn" ToolTip.Tip="Playback Speed ( [ / ] )" PointerWheelChanged="OnSpeedButtonScroll" Padding="8,0" FontSize="11" FontFamily="Consolas">
+                                            <Button Name="DeckSpeedButton" Content="1.00x" Classes="control-button transport-btn" ToolTip.Tip="Playback Speed ( [ / ] )" PointerWheelChanged="TransportSpeedLabel_PointerWheelChanged" Padding="8,0" FontSize="11" FontFamily="Consolas">
                                                 <Button.Flyout>
-                                                    <Flyout Placement="Bottom" ShowMode="Standard">
-                                                        <Border Background="#E60C0C12" CornerRadius="8" BorderBrush="#1F222F" BorderThickness="1" Padding="12" Width="180">
-                                                            <StackPanel Spacing="10">
-                                                                <TextBlock Text="PLAYBACK SPEED" Foreground="#8A92AD" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center"/>
-                                                                
-                                                                <UniformGrid Columns="4" Rows="2" Margin="0,4">
-                                                                    <Button Content="0.25" Classes="speed-preset" Tag="0.25" Click="OnSpeedPresetClick"/>
-                                                                    <Button Content="0.5" Classes="speed-preset" Tag="0.5" Click="OnSpeedPresetClick"/>
-                                                                    <Button Content="0.75" Classes="speed-preset" Tag="0.75" Click="OnSpeedPresetClick"/>
-                                                                    <Button Content="1.0" Classes="speed-preset" Tag="1.0" Click="OnSpeedPresetClick"/>
-                                                                    <Button Content="1.25" Classes="speed-preset" Tag="1.25" Click="OnSpeedPresetClick"/>
-                                                                    <Button Content="1.5" Classes="speed-preset" Tag="1.5" Click="OnSpeedPresetClick"/>
-                                                                    <Button Content="1.8" Classes="speed-preset" Tag="1.8" Click="OnSpeedPresetClick"/>
-                                                                    <Button Content="2.0" Classes="speed-preset" Tag="2.0" Click="OnSpeedPresetClick"/>
-                                                                </UniformGrid>
+                                                    <Flyout Placement="Bottom" ShowMode="Standard" Opened="SpeedFlyout_Opened">
+                                                        <Border Background="#E60C0C12" CornerRadius="8" BorderBrush="#1F222F" BorderThickness="1" Padding="14" Width="260" BoxShadow="0 8 24 0 #40000000">
+                                                            <StackPanel Spacing="12">
+                                                                <TextBlock Text="Playback speed" FontSize="11" FontWeight="SemiBold"
+                                                                           Foreground="#8A8F9C" HorizontalAlignment="Center" Margin="0,0,0,12"/>
 
-                                                                <Border Height="1" Background="#1F222F" Margin="0,4"/>
+                                                                <TextBlock Name="DeckSpeedValueText" Text="1.00x" FontSize="32" FontWeight="Bold"
+                                                                           Foreground="#00D2FF" HorizontalAlignment="Center" Margin="0,0,0,16"/>
 
-                                                                <StackPanel Spacing="6">
-                                                                    <Grid ColumnDefinitions="*,Auto">
-                                                                        <TextBlock Text="Custom Speed" Foreground="#5C647C" FontSize="10" VerticalAlignment="Center"/>
-                                                                        <TextBox Name="DeckCustomSpeedTextBox" Grid.Column="1" Classes="speed-textbox"
-                                                                                 Text="1.00" KeyDown="OnCustomSpeedTextBoxKeyDown" LostFocus="OnCustomSpeedTextBoxLostFocus"/>
-                                                                    </Grid>
-                                                                    <Slider Name="DeckCustomSpeedSlider" Minimum="0.25" Maximum="4.0" Value="1.0" Classes="speed-slider"
-                                                                            PropertyChanged="OnCustomSpeedSliderPropertyChanged"/>
+                                                                <Slider Name="DeckSpeedSlider"
+                                                                        Classes="playback"
+                                                                        Minimum="0.25" Maximum="2.0"
+                                                                        TickFrequency="0.05" IsSnapToTickEnabled="True"
+                                                                        Value="1.0"
+                                                                        ValueChanged="SpeedSlider_ValueChanged" Height="16"/>
+
+                                                                <Grid Margin="4,4,4,16" ColumnDefinitions="*,*,*,*,*">
+                                                                    <TextBlock Grid.Column="0" Text="0.25x" FontSize="10" Foreground="#5A5F6C" HorizontalAlignment="Left"/>
+                                                                    <TextBlock Grid.Column="1" Text="0.5x"  FontSize="10" Foreground="#5A5F6C" HorizontalAlignment="Center"/>
+                                                                    <TextBlock Grid.Column="2" Text="1x"    FontSize="10" Foreground="#5A5F6C" HorizontalAlignment="Center"/>
+                                                                    <TextBlock Grid.Column="3" Text="1.5x"  FontSize="10" Foreground="#5A5F6C" HorizontalAlignment="Center"/>
+                                                                    <TextBlock Grid.Column="4" Text="2x"    FontSize="10" Foreground="#5A5F6C" HorizontalAlignment="Right"/>
+                                                                </Grid>
+
+                                                                <StackPanel Name="DeckPresetPanel" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                                                                    <Button Classes="speed-preset" Content="0.5x"   Tag="0.5" Click="SpeedPreset_Click"/>
+                                                                    <Button Classes="speed-preset" Content="Normal" Tag="1.0" Click="SpeedPreset_Click"/>
+                                                                    <Button Classes="speed-preset" Content="1.5x"   Tag="1.5" Click="SpeedPreset_Click"/>
+                                                                    <Button Classes="speed-preset" Content="2x"     Tag="2.0" Click="SpeedPreset_Click"/>
                                                                 </StackPanel>
+
+                                                                <Button Name="DeckResetSpeedButton" Content="Reset to normal" Classes="speed-reset-link"
+                                                                        HorizontalAlignment="Center" Margin="0,12,0,0" IsVisible="False" Click="ResetSpeed_Click"/>
                                                             </StackPanel>
                                                         </Border>
                                                     </Flyout>

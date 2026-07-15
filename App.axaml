@@ -108,7 +108,17 @@
             <Setter Property="Height" Value="6"/>
         </Style>
         <Style Selector="Slider.playback:pointerover /template/ RepeatButton.playback-track-increase /template/ Border#IncreaseBorder">
-            <Setter Property="Height" Value="6"/>
+        </Style>
+
+        <!-- General Speed Slider Thumb Override -->
+        <Style Selector="Slider.playback /template/ Thumb.playback-thumb">
+            <Setter Property="Width" Value="10"/>
+            <Setter Property="Height" Value="10"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Width="10" Height="10" CornerRadius="5" Background="#00D2FF" BorderBrush="#8000D2FF" BorderThickness="1"/>
+                </ControlTemplate>
+            </Setter>
         </Style>
 
         <!-- Seamless Floating Transport Controls (Strips Default Box Backplates) -->
@@ -483,6 +493,60 @@
         <!-- Sleek MenuFlyoutPresenter styling to enable scrollbar when items list goes offscreen -->
         <Style Selector="MenuFlyoutPresenter">
             <Setter Property="MaxHeight" Value="400"/>
+        </Style>
+
+        <!-- Speed Preset Capsule Chips -->
+        <Style Selector="Button.speed-preset">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="#3E424F"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="Foreground" Value="#8A92AD"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.speed-preset /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#3E424F"/>
+        </Style>
+        <Style Selector="Button.speed-preset:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="#00D2FF"/>
+            <Setter Property="Foreground" Value="#00D2FF"/>
+        </Style>
+        <Style Selector="Button.speed-preset.active">
+            <Setter Property="Background" Value="#1A00D2FF"/>
+            <Setter Property="BorderBrush" Value="#00D2FF"/>
+            <Setter Property="Foreground" Value="#00D2FF"/>
+        </Style>
+        <Style Selector="Button.speed-preset.active /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#1A00D2FF"/>
+            <Setter Property="BorderBrush" Value="#00D2FF"/>
+            <Setter Property="Foreground" Value="#00D2FF"/>
+        </Style>
+
+        <!-- Speed Reset Link Button -->
+        <Style Selector="Button.speed-reset-link">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="#00D2FF"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.speed-reset-link /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="Button.speed-reset-link:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#00D2FF"/>
+        </Style>
+        <Style Selector="Button.speed-reset-link:pointerover TextBlock">
+            <Setter Property="TextDecorations" Value="Underline"/>
         </Style>
     </Application.Styles>
 </Application>

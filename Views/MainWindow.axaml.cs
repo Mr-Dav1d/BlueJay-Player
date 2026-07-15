@@ -177,13 +177,17 @@ public partial class MainWindow : Window
     
     // Playback Speed Control
     private double _currentSpeed = 1.0;
-    private bool _isUpdatingSpeedUI = false;
+    private bool _isSyncingSpeed = false;
     private Button? _singleSpeedButton;
     private Button? _deckSpeedButton;
-    private TextBox? _singleCustomSpeedTextBox;
-    private TextBox? _deckCustomSpeedTextBox;
-    private Slider? _singleCustomSpeedSlider;
-    private Slider? _deckCustomSpeedSlider;
+    private TextBlock? _singleSpeedValueText;
+    private TextBlock? _deckSpeedValueText;
+    private Slider? _singleSpeedSlider;
+    private Slider? _deckSpeedSlider;
+    private Button? _singleResetSpeedButton;
+    private Button? _deckResetSpeedButton;
+    private StackPanel? _singlePresetPanel;
+    private StackPanel? _deckPresetPanel;
 
     // Phase 3 state fields
     private System.Collections.ObjectModel.ObservableCollection<QueueItemViewModel> _playbackQueueItems = new();
@@ -625,18 +629,6 @@ public partial class MainWindow : Window
 
         _singleSpeedButton = FindInTree<Button>(hudPanel, "SingleSpeedButton");
         _deckSpeedButton = FindInTree<Button>(hudPanel, "DeckSpeedButton");
-
-        if (_singleSpeedButton?.Flyout is Flyout sf && sf.Content is Control sfContent)
-        {
-            _singleCustomSpeedTextBox = FindInTree<TextBox>(sfContent, "SingleCustomSpeedTextBox");
-            _singleCustomSpeedSlider = FindInTree<Slider>(sfContent, "SingleCustomSpeedSlider");
-        }
-
-        if (_deckSpeedButton?.Flyout is Flyout df && df.Content is Control dfContent)
-        {
-            _deckCustomSpeedTextBox = FindInTree<TextBox>(dfContent, "DeckCustomSpeedTextBox");
-            _deckCustomSpeedSlider = FindInTree<Slider>(dfContent, "DeckCustomSpeedSlider");
-        }
 
         if (_showSystemClock)
         {
@@ -2085,17 +2077,15 @@ public partial class MainWindow : Window
         if (e.Key == Key.OemOpenBrackets)
         {
             e.Handled = true;
-            double newSpeed = _currentSpeed - 0.1;
-            SetSpeed(newSpeed);
-            TriggerOsdHUD("⚡", $"Playback Speed: {newSpeed:F2}x");
+            SetSpeed(_currentSpeed - 0.1);
+            TriggerOsdHUD("⚡", $"Playback Speed: {_currentSpeed:F2}x");
             return;
         }
         if (e.Key == Key.OemCloseBrackets)
         {
             e.Handled = true;
-            double newSpeed = _currentSpeed + 0.1;
-            SetSpeed(newSpeed);
-            TriggerOsdHUD("⚡", $"Playback Speed: {newSpeed:F2}x");
+            SetSpeed(_currentSpeed + 0.1);
+            TriggerOsdHUD("⚡", $"Playback Speed: {_currentSpeed:F2}x");
             return;
         }
         if (e.Key == Key.OemBackslash)
@@ -2397,112 +2387,132 @@ public partial class MainWindow : Window
 
     private void SetSpeed(double speed, bool updateControls = true)
     {
-        // Clamp speed between 0.25 and 4.0
-        speed = Math.Max(0.25, Math.Min(4.0, speed));
-        _currentSpeed = speed;
-
-        IntPtr localMpv = _mpvHandle;
-        Task.Run(() =>
+        if (_isSyncingSpeed) return;
+        _isSyncingSpeed = true;
+        try
         {
-            if (localMpv != IntPtr.Zero)
+            // 1. Clamp speed [0.25, 2.0] and update '_currentSpeed'
+            _currentSpeed = Math.Clamp(speed, 0.25, 2.0);
+
+            // 2. Commit the speed asynchronously to libmpv
+            IntPtr localMpv = _mpvHandle;
+            Task.Run(() =>
             {
-                SetMpvPropertyDouble(localMpv, "speed", speed);
-            }
-        });
+                if (localMpv != IntPtr.Zero)
+                {
+                    SetMpvPropertyDouble(localMpv, "speed", _currentSpeed);
+                }
+            });
 
-        // Update the speed badges on the UI thread
-        Dispatcher.UIThread.Post(() =>
-        {
-            string text = $"{speed:F2}x";
-            if (_singleSpeedButton != null) _singleSpeedButton.Content = text;
-            if (_deckSpeedButton != null) _deckSpeedButton.Content = text;
+            // 3. Update active transport button labels
+            if (_singleSpeedButton != null) _singleSpeedButton.Content = $"{_currentSpeed:F2}x";
+            if (_deckSpeedButton != null) _deckSpeedButton.Content = $"{_currentSpeed:F2}x";
 
+            // 4. Update the Flyout UI Controls if cached
             if (updateControls)
             {
-                _isUpdatingSpeedUI = true;
-                try
-                {
-                    if (_singleCustomSpeedSlider != null) _singleCustomSpeedSlider.Value = speed;
-                    if (_deckCustomSpeedSlider != null) _deckCustomSpeedSlider.Value = speed;
-
-                    string boxText = $"{speed:F2}";
-                    if (_singleCustomSpeedTextBox != null) _singleCustomSpeedTextBox.Text = boxText;
-                    if (_deckCustomSpeedTextBox != null) _deckCustomSpeedTextBox.Text = boxText;
-                }
-                finally
-                {
-                    _isUpdatingSpeedUI = false;
-                }
+                if (_singleSpeedSlider != null) _singleSpeedSlider.Value = _currentSpeed;
+                if (_deckSpeedSlider != null) _deckSpeedSlider.Value = _currentSpeed;
             }
-        });
+
+            // 5. Update Value Textblocks live
+            if (_singleSpeedValueText != null) _singleSpeedValueText.Text = $"{_currentSpeed:F2}x";
+            if (_deckSpeedValueText != null) _deckSpeedValueText.Text = $"{_currentSpeed:F2}x";
+
+            // 6. Toggle dynamic Reset Link visibility
+            bool showReset = Math.Abs(_currentSpeed - 1.0) > 0.01;
+            if (_singleResetSpeedButton != null) _singleResetSpeedButton.IsVisible = showReset;
+            if (_deckResetSpeedButton != null) _deckResetSpeedButton.IsVisible = showReset;
+
+            // 7. Update preset chip active classes
+            UpdateActiveChipClass(_singlePresetPanel, _currentSpeed);
+            UpdateActiveChipClass(_deckPresetPanel, _currentSpeed);
+        }
+        finally
+        {
+            _isSyncingSpeed = false;
+        }
     }
 
-    private void OnSpeedPresetClick(object? sender, RoutedEventArgs e)
+    private void UpdateActiveChipClass(StackPanel? panel, double speed)
     {
-        if (sender is Button btn && btn.Tag is string tagStr && double.TryParse(tagStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double speed))
+        if (panel == null) return;
+        foreach (var child in panel.Children)
+        {
+            if (child is Button btn)
+            {
+                if (btn.Tag is string tagStr && double.TryParse(tagStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double presetVal))
+                {
+                    bool isActive = Math.Abs(presetVal - speed) < 0.01;
+                    if (isActive)
+                    {
+                        if (!btn.Classes.Contains("active")) btn.Classes.Add("active");
+                    }
+                    else
+                    {
+                        btn.Classes.Remove("active");
+                    }
+                }
+            }
+        }
+    }
+
+    private void SpeedFlyout_Opened(object? sender, EventArgs e)
+    {
+        if (sender is Flyout flyout && flyout.Content is Control content)
+        {
+            // Resolve controls based on Single or Deck layout
+            var singleSpeedSlider = FindInTree<Slider>(content, "SingleSpeedSlider");
+            if (singleSpeedSlider != null)
+            {
+                _singleSpeedSlider = singleSpeedSlider;
+                _singleSpeedValueText = FindInTree<TextBlock>(content, "SingleSpeedValueText");
+                _singleResetSpeedButton = FindInTree<Button>(content, "SingleResetSpeedButton");
+                _singlePresetPanel = FindInTree<StackPanel>(content, "SinglePresetPanel");
+            }
+
+            var deckSpeedSlider = FindInTree<Slider>(content, "DeckSpeedSlider");
+            if (deckSpeedSlider != null)
+            {
+                _deckSpeedSlider = deckSpeedSlider;
+                _deckSpeedValueText = FindInTree<TextBlock>(content, "DeckSpeedValueText");
+                _deckResetSpeedButton = FindInTree<Button>(content, "DeckResetSpeedButton");
+                _deckPresetPanel = FindInTree<StackPanel>(content, "DeckPresetPanel");
+            }
+
+            // Immediately synchronize visual states without updating slider to prevent recursive triggering
+            SetSpeed(_currentSpeed, updateControls: true);
+        }
+    }
+
+    private void SpeedSlider_ValueChanged(object? sender, Avalonia.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+    {
+        if (!_isSyncingSpeed)
+        {
+            var speed = Math.Round(e.NewValue, 2);
+            SetSpeed(speed, updateControls: false);
+        }
+    }
+
+    private void SpeedPreset_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string tag } && double.TryParse(tag, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var speed))
         {
             SetSpeed(speed);
             TriggerOsdHUD("⚡", $"Playback Speed: {speed:F2}x");
         }
     }
 
-    private void OnCustomSpeedSliderPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    private void ResetSpeed_Click(object? sender, RoutedEventArgs e)
     {
-        if (e.Property == Slider.ValueProperty && !_isUpdatingSpeedUI)
-        {
-            if (sender is Slider slider)
-            {
-                double val = slider.Value;
-                SetSpeed(val, false);
-                
-                // Update textboxes
-                string text = $"{val:F2}";
-                if (_singleCustomSpeedTextBox != null) _singleCustomSpeedTextBox.Text = text;
-                if (_deckCustomSpeedTextBox != null) _deckCustomSpeedTextBox.Text = text;
-            }
-        }
+        SetSpeed(1.0);
+        TriggerOsdHUD("⚡", "Playback Speed: 1.00x");
     }
 
-    private void OnCustomSpeedTextBoxKeyDown(object? sender, KeyEventArgs e)
+    private void TransportSpeedLabel_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
-        if (e.Key == Key.Enter || e.Key == Key.Return)
-        {
-            if (sender is TextBox tb)
-            {
-                if (double.TryParse(tb.Text, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double speed) && speed >= 0.25 && speed <= 4.0)
-                {
-                    SetSpeed(speed);
-                    TriggerOsdHUD("⚡", $"Playback Speed: {speed:F2}x");
-                }
-                else
-                {
-                    tb.Text = _currentSpeed.ToString("F2");
-                }
-            }
-            e.Handled = true;
-        }
-    }
-
-    private void OnCustomSpeedTextBoxLostFocus(object? sender, RoutedEventArgs e)
-    {
-        if (sender is TextBox tb)
-        {
-            if (double.TryParse(tb.Text, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double speed) && speed >= 0.25 && speed <= 4.0)
-            {
-                SetSpeed(speed);
-                TriggerOsdHUD("⚡", $"Playback Speed: {speed:F2}x");
-            }
-            else
-            {
-                tb.Text = _currentSpeed.ToString("F2");
-            }
-        }
-    }
-
-    private void OnSpeedButtonScroll(object? sender, PointerWheelEventArgs e)
-    {
-        double delta = e.Delta.Y > 0 ? 0.05 : -0.05;
-        double newSpeed = _currentSpeed + delta;
+        var delta = e.Delta.Y > 0 ? 0.05 : -0.05;
+        double newSpeed = Math.Clamp(_currentSpeed + delta, 0.25, 2.0);
         SetSpeed(newSpeed);
         TriggerOsdHUD("⚡", $"Playback Speed: {newSpeed:F2}x");
         e.Handled = true;
