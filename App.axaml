@@ -29,7 +29,7 @@
                     <Grid Name="SliderContainer" VerticalAlignment="Center" Height="24">
                         <Border Background="Transparent" VerticalAlignment="Stretch"/>
                         <!-- Muted charcoal-blue rail track background -->
-                        <Border Name="TrackBackground" Height="3" VerticalAlignment="Center" CornerRadius="1.5" Background="#1F222F">
+                        <Border Name="TrackBackground" Height="3" VerticalAlignment="Center" CornerRadius="1.5" Background="#30354A">
                             <Border.Transitions>
                                 <Transitions>
                                     <DoubleTransition Property="Height" Duration="0:0:0.12"/>
@@ -68,7 +68,7 @@
 
         <!-- Saturated Sapphire Active Fill Track -->
         <Style Selector="RepeatButton.playback-track-decrease">
-            <Setter Property="Background" Value="#2B88FF"/>
+            <Setter Property="Background" Value="#00D2FF"/>
             <Setter Property="Template">
                 <ControlTemplate>
                     <Border Name="DecreaseBorder" Background="{TemplateBinding Background}" CornerRadius="1.5,0,0,1.5" Height="3" VerticalAlignment="Center">
@@ -83,7 +83,7 @@
         </Style>
 
         <Style Selector="RepeatButton.playback-track-increase">
-            <Setter Property="Background" Value="#1F222F"/>
+            <Setter Property="Background" Value="#30354A"/>
             <Setter Property="Template">
                 <ControlTemplate>
                     <Border Name="IncreaseBorder" Background="{TemplateBinding Background}" CornerRadius="0,1.5,1.5,0" Height="3" VerticalAlignment="Center">

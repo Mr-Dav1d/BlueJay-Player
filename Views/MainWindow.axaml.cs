@@ -174,6 +174,16 @@ public partial class MainWindow : Window
     private Button? _returnFromPipButton;
     private Button? _singlePipButton;
     private Button? _deckPipButton;
+    
+    // Playback Speed Control
+    private double _currentSpeed = 1.0;
+    private bool _isUpdatingSpeedUI = false;
+    private Button? _singleSpeedButton;
+    private Button? _deckSpeedButton;
+    private TextBox? _singleCustomSpeedTextBox;
+    private TextBox? _deckCustomSpeedTextBox;
+    private Slider? _singleCustomSpeedSlider;
+    private Slider? _deckCustomSpeedSlider;
 
     // Phase 3 state fields
     private System.Collections.ObjectModel.ObservableCollection<QueueItemViewModel> _playbackQueueItems = new();
@@ -613,6 +623,21 @@ public partial class MainWindow : Window
         _singleSystemClockSeparator = FindInTree<TextBlock>(hudPanel, "SingleSystemClockSeparator");
         _deckSystemClockSeparator = FindInTree<TextBlock>(hudPanel, "DeckSystemClockSeparator");
 
+        _singleSpeedButton = FindInTree<Button>(hudPanel, "SingleSpeedButton");
+        _deckSpeedButton = FindInTree<Button>(hudPanel, "DeckSpeedButton");
+
+        if (_singleSpeedButton?.Flyout is Flyout sf && sf.Content is Control sfContent)
+        {
+            _singleCustomSpeedTextBox = FindInTree<TextBox>(sfContent, "SingleCustomSpeedTextBox");
+            _singleCustomSpeedSlider = FindInTree<Slider>(sfContent, "SingleCustomSpeedSlider");
+        }
+
+        if (_deckSpeedButton?.Flyout is Flyout df && df.Content is Control dfContent)
+        {
+            _deckCustomSpeedTextBox = FindInTree<TextBox>(dfContent, "DeckCustomSpeedTextBox");
+            _deckCustomSpeedSlider = FindInTree<Slider>(dfContent, "DeckCustomSpeedSlider");
+        }
+
         if (_showSystemClock)
         {
             UpdateSystemClockText();
@@ -960,6 +985,13 @@ public partial class MainWindow : Window
                 else if (mpvEvent.EventId == 8) // MPV_EVENT_FILE_LOADED
                 {
                     Log("RunEventLoop: MPV_EVENT_FILE_LOADED received.");
+
+                    // Unconditionally re-apply current playback speed setting to new track
+                    if (_mpvHandle != IntPtr.Zero)
+                    {
+                        SetMpvPropertyDouble(_mpvHandle, "speed", _currentSpeed);
+                        Log($"RunEventLoop (FILE_LOADED): Re-applied playback speed rate: {_currentSpeed:F2}x");
+                    }
 
                     if (_isPipActive && _pipWindow != null)
                     {
@@ -2050,6 +2082,30 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (e.Key == Key.OemOpenBrackets)
+        {
+            e.Handled = true;
+            double newSpeed = _currentSpeed - 0.1;
+            SetSpeed(newSpeed);
+            TriggerOsdHUD("⚡", $"Playback Speed: {newSpeed:F2}x");
+            return;
+        }
+        if (e.Key == Key.OemCloseBrackets)
+        {
+            e.Handled = true;
+            double newSpeed = _currentSpeed + 0.1;
+            SetSpeed(newSpeed);
+            TriggerOsdHUD("⚡", $"Playback Speed: {newSpeed:F2}x");
+            return;
+        }
+        if (e.Key == Key.OemBackslash)
+        {
+            e.Handled = true;
+            SetSpeed(1.0);
+            TriggerOsdHUD("⚡", "Playback Speed: 1.00x");
+            return;
+        }
+
         // Capture control commands for key bindings
         string? command = null;
         string? argument = null;
@@ -2337,6 +2393,119 @@ public partial class MainWindow : Window
             if (result != null) return result;
         }
         return null;
+    }
+
+    private void SetSpeed(double speed, bool updateControls = true)
+    {
+        // Clamp speed between 0.25 and 4.0
+        speed = Math.Max(0.25, Math.Min(4.0, speed));
+        _currentSpeed = speed;
+
+        IntPtr localMpv = _mpvHandle;
+        Task.Run(() =>
+        {
+            if (localMpv != IntPtr.Zero)
+            {
+                SetMpvPropertyDouble(localMpv, "speed", speed);
+            }
+        });
+
+        // Update the speed badges on the UI thread
+        Dispatcher.UIThread.Post(() =>
+        {
+            string text = $"{speed:F2}x";
+            if (_singleSpeedButton != null) _singleSpeedButton.Content = text;
+            if (_deckSpeedButton != null) _deckSpeedButton.Content = text;
+
+            if (updateControls)
+            {
+                _isUpdatingSpeedUI = true;
+                try
+                {
+                    if (_singleCustomSpeedSlider != null) _singleCustomSpeedSlider.Value = speed;
+                    if (_deckCustomSpeedSlider != null) _deckCustomSpeedSlider.Value = speed;
+
+                    string boxText = $"{speed:F2}";
+                    if (_singleCustomSpeedTextBox != null) _singleCustomSpeedTextBox.Text = boxText;
+                    if (_deckCustomSpeedTextBox != null) _deckCustomSpeedTextBox.Text = boxText;
+                }
+                finally
+                {
+                    _isUpdatingSpeedUI = false;
+                }
+            }
+        });
+    }
+
+    private void OnSpeedPresetClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is string tagStr && double.TryParse(tagStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double speed))
+        {
+            SetSpeed(speed);
+            TriggerOsdHUD("⚡", $"Playback Speed: {speed:F2}x");
+        }
+    }
+
+    private void OnCustomSpeedSliderPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property == Slider.ValueProperty && !_isUpdatingSpeedUI)
+        {
+            if (sender is Slider slider)
+            {
+                double val = slider.Value;
+                SetSpeed(val, false);
+                
+                // Update textboxes
+                string text = $"{val:F2}";
+                if (_singleCustomSpeedTextBox != null) _singleCustomSpeedTextBox.Text = text;
+                if (_deckCustomSpeedTextBox != null) _deckCustomSpeedTextBox.Text = text;
+            }
+        }
+    }
+
+    private void OnCustomSpeedTextBoxKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter || e.Key == Key.Return)
+        {
+            if (sender is TextBox tb)
+            {
+                if (double.TryParse(tb.Text, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double speed) && speed >= 0.25 && speed <= 4.0)
+                {
+                    SetSpeed(speed);
+                    TriggerOsdHUD("⚡", $"Playback Speed: {speed:F2}x");
+                }
+                else
+                {
+                    tb.Text = _currentSpeed.ToString("F2");
+                }
+            }
+            e.Handled = true;
+        }
+    }
+
+    private void OnCustomSpeedTextBoxLostFocus(object? sender, RoutedEventArgs e)
+    {
+        if (sender is TextBox tb)
+        {
+            if (double.TryParse(tb.Text, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double speed) && speed >= 0.25 && speed <= 4.0)
+            {
+                SetSpeed(speed);
+                TriggerOsdHUD("⚡", $"Playback Speed: {speed:F2}x");
+            }
+            else
+            {
+                tb.Text = _currentSpeed.ToString("F2");
+            }
+        }
+    }
+
+    private void OnSpeedButtonScroll(object? sender, PointerWheelEventArgs e)
+    {
+        double delta = e.Delta.Y > 0 ? 0.05 : -0.05;
+        double newSpeed = _currentSpeed + delta;
+        SetSpeed(newSpeed);
+        TriggerOsdHUD("⚡", $"Playback Speed: {newSpeed:F2}x");
+        e.Handled = true;
     }
 
     private void AdjustSubDelay(double delta, bool reset = false)
