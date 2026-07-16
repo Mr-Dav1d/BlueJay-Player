@@ -63,6 +63,23 @@ public partial class PipWindow : Window
             SurfaceHandleReady?.Invoke(hwnd);
         };
 
+        PipVideoSurface.DoubleTapHandler = (s, e) =>
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (WindowState == WindowState.Maximized)
+                {
+                    WindowState = WindowState.Normal;
+                    PipLogger.Log("PipWindow: VideoSurface double-tapped, restored to Normal");
+                }
+                else
+                {
+                    WindowState = WindowState.Maximized;
+                    PipLogger.Log("PipWindow: VideoSurface double-tapped, maximized window state");
+                }
+            });
+        };
+
         PipPlayPauseButton.Click += (_, _) => TogglePlayPauseRequested?.Invoke(this, EventArgs.Empty);
         PipSkipBack10Button.Click += (_, _) => SkipBackwardRequested?.Invoke(this, EventArgs.Empty);
         PipSkipForward10Button.Click += (_, _) => SkipForwardRequested?.Invoke(this, EventArgs.Empty);
@@ -194,7 +211,23 @@ public partial class PipWindow : Window
 
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
-            BeginMoveDrag(e);
+            if (e.ClickCount == 2)
+            {
+                if (WindowState == WindowState.Maximized)
+                {
+                    WindowState = WindowState.Normal;
+                    PipLogger.Log("PipWindow: Double-clicked, restored window state to Normal");
+                }
+                else
+                {
+                    WindowState = WindowState.Maximized;
+                    PipLogger.Log("PipWindow: Double-clicked, maximized window state");
+                }
+            }
+            else
+            {
+                BeginMoveDrag(e);
+            }
         }
     }
 
