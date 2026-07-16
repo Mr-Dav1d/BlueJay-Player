@@ -28,6 +28,27 @@ public class MpvVideoSurface : NativeControlHost
         set => SetValue(ContentProperty, value);
     }
 
+    public void EnsureOverlayVisible()
+    {
+        if (_overlayWindow == null)
+        {
+            InitializeNativeOverlay();
+        }
+        else
+        {
+            if (_parentWindow != null)
+                _overlayWindow.Show(_parentWindow);
+            else
+                _overlayWindow.Show();
+            SyncOverlayGeometry();
+        }
+    }
+
+    public void HideOverlay()
+    {
+        _overlayWindow?.Hide();
+    }
+
     protected override IPlatformHandle CreateNativeControlCore(IPlatformHandle parent)
     {
         BlueJayPlayer.Views.PipLogger.Log("MpvVideoSurface: CreateNativeControlCore started");

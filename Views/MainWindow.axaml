@@ -625,10 +625,42 @@
                             <!-- Segmented Breadcrumb & Up Button Header with Sort Criteria & View Toggle -->
                             <Grid Grid.Row="0" RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
                                 <!-- Scrollable Segmented Breadcrumb Capsules -->
-                                <ScrollViewer Grid.Row="0" Grid.Column="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Margin="0,0,8,0">
-                                    <StackPanel Name="BreadcrumbContainer" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"/>
-                                </ScrollViewer>
-                                <Button Grid.Row="0" Grid.Column="1" Name="UpDirectoryButton" Classes="page-btn" Content="⬆ Up" FontSize="10"/>
+                                <Panel Name="BreadcrumbPathContainer" Grid.Row="0" Grid.Column="0" Background="Transparent" PointerPressed="OnBreadcrumbAreaClicked">
+                                    <!-- Scrollable Segmented Breadcrumb Capsules -->
+                                    <ScrollViewer Name="BreadcrumbScrollViewer" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" Margin="0,0,8,0">
+                                        <ScrollViewer.OpacityMask>
+                                            <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+                                                <GradientStop Color="Black" Offset="0"/>
+                                                <GradientStop Color="Black" Offset="0.92"/>
+                                                <GradientStop Color="Transparent" Offset="1"/>
+                                            </LinearGradientBrush>
+                                        </ScrollViewer.OpacityMask>
+                                        <StackPanel Name="BreadcrumbContainer" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"/>
+                                    </ScrollViewer>
+
+                                    <!-- Manual Input TextBox -->
+                                    <TextBox Name="DirectoryPathTextBox" Classes="speed-textbox"
+                                             IsVisible="False"
+                                             KeyDown="OnDirectoryPathTextBoxKeyDown"
+                                             LostFocus="OnDirectoryPathTextBoxLostFocus"
+                                             Height="26" Width="NaN" HorizontalAlignment="Stretch" TextAlignment="Left" HorizontalContentAlignment="Left"
+                                             Padding="8,4" FontSize="11"/>
+                                </Panel>
+                                
+                                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                    <Button Name="BackButton" Classes="page-btn" Width="24" Height="24" Padding="0" ToolTip.Tip="Back" IsEnabled="False">
+                                        <PathIcon Data="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" Width="10" Height="10"/>
+                                    </Button>
+                                    <Button Name="ForwardButton" Classes="page-btn" Width="24" Height="24" Padding="0" ToolTip.Tip="Forward" IsEnabled="False">
+                                        <PathIcon Data="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" Width="10" Height="10"/>
+                                    </Button>
+                                    <Button Name="UpDirectoryButton" Classes="page-btn" Width="24" Height="24" Padding="0" ToolTip.Tip="Up to Parent Directory">
+                                        <PathIcon Data="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z" Width="10" Height="10"/>
+                                    </Button>
+                                    <Button Name="EditDirectoryPathButton" Classes="page-btn" Width="24" Height="24" Padding="0" ToolTip.Tip="Edit Path">
+                                        <PathIcon Data="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z M20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" Width="10" Height="10"/>
+                                    </Button>
+                                </StackPanel>
                                 
                                 <Grid Grid.Row="1" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto" Margin="0,6,0,0">
                                     <TextBlock Grid.Column="0" Text="SORT BY" Foreground="#5C647C" FontSize="9" FontWeight="Bold" VerticalAlignment="Center" LetterSpacing="0.8"/>
@@ -971,6 +1003,17 @@
                                                 <TextBlock Text="Overrides default boot path to resume browsing from the last active folder." Foreground="#5C647C" FontSize="10" TextWrapping="Wrap"/>
                                             </StackPanel>
                                             <ToggleSwitch Grid.Column="1" Name="RememberLastDirToggle" OnContent="Yes" OffContent="No" IsChecked="True"/>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- Auto-Navigate Directory On Drop -->
+                                    <Border Background="#07070A" BorderBrush="#1F222F" BorderThickness="1" CornerRadius="8" Padding="16">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Spacing="4" Margin="0,0,16,0">
+                                                <TextBlock Text="Auto-Navigate Directory on Drop" Foreground="#C5CEE3" FontSize="11" FontWeight="SemiBold"/>
+                                                <TextBlock Text="Automatically syncs the directory explorer to a dropped file's parent folder." Foreground="#5C647C" FontSize="10" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                            <ToggleSwitch Grid.Column="1" Name="AutoNavigateDirectoryOnDropToggle" OnContent="Yes" OffContent="No" IsChecked="True"/>
                                         </Grid>
                                     </Border>
 

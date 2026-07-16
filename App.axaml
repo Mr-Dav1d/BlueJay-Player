@@ -429,15 +429,18 @@
         <Style Selector="ScrollBar">
             <Setter Property="AllowAutoHide" Value="True"/>
         </Style>
+        <Style Selector="ScrollBar /template/ Thumb">
+            <Setter Property="Background" Value="#3A3F4C"/>
+            <Setter Property="CornerRadius" Value="3"/>
+        </Style>
+        <Style Selector="ScrollBar /template/ Thumb:pointerover">
+            <Setter Property="Background" Value="#00D2FF"/>
+        </Style>
         <Style Selector="ScrollBar:vertical">
             <Setter Property="Width" Value="6"/>
         </Style>
-        <Style Selector="ScrollBar:vertical /template/ Thumb">
-            <Setter Property="Background" Value="#1A2B88FF"/>
-            <Setter Property="CornerRadius" Value="3"/>
-        </Style>
-        <Style Selector="ScrollBar:vertical /template/ Thumb:pointerover">
-            <Setter Property="Background" Value="#2B88FF"/>
+        <Style Selector="ScrollBar:horizontal">
+            <Setter Property="Height" Value="6"/>
         </Style>
 
         <!-- Pulsing Placeholder Animation -->

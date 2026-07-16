@@ -178,6 +178,7 @@ public partial class MainWindow : Window
     // Playback Speed Control
     private double _currentSpeed = 1.0;
     private bool _isSyncingSpeed = false;
+    private bool _isUserDraggingSpeedSlider = false;
     private Button? _singleSpeedButton;
     private Button? _deckSpeedButton;
     private TextBlock? _singleSpeedValueText;
@@ -209,6 +210,18 @@ public partial class MainWindow : Window
     private StackPanel? _queuePlaceholderText;
     private StackPanel? _breadcrumbContainer;
     private Button? _upDirectoryButton;
+    private Panel? _breadcrumbPathContainer;
+    private ScrollViewer? _breadcrumbScrollViewer;
+    private TextBox? _directoryPathTextBox;
+    private Button? _editDirectoryPathButton;
+    private Button? _backButton;
+    private Button? _forwardButton;
+    private ToggleSwitch? _autoNavigateDirectoryOnDropToggle;
+
+    private readonly System.Collections.Generic.List<string> _directoryHistory = new();
+    private int _historyIndex = -1;
+    private bool _isNavigatingHistory = false;
+    private bool _autoNavigateDirectoryOnDrop = true;
     private ListBox? _directoryListBox;
     private ComboBox? _directorySortComboBox;
     private int _directorySortMode = 0;
@@ -393,6 +406,12 @@ public partial class MainWindow : Window
         _queuePlaceholderText = this.FindControl<StackPanel>("QueuePlaceholderText");
         _breadcrumbContainer = this.FindControl<StackPanel>("BreadcrumbContainer");
         _upDirectoryButton = this.FindControl<Button>("UpDirectoryButton");
+        _breadcrumbPathContainer = this.FindControl<Panel>("BreadcrumbPathContainer");
+        _breadcrumbScrollViewer = this.FindControl<ScrollViewer>("BreadcrumbScrollViewer");
+        _directoryPathTextBox = this.FindControl<TextBox>("DirectoryPathTextBox");
+        _editDirectoryPathButton = this.FindControl<Button>("EditDirectoryPathButton");
+        _backButton = this.FindControl<Button>("BackButton");
+        _forwardButton = this.FindControl<Button>("ForwardButton");
         _directoryListBox = this.FindControl<ListBox>("DirectoryListBox");
         _directorySortComboBox = this.FindControl<ComboBox>("DirectorySortComboBox");
         _viewModeToggleButton = this.FindControl<Button>("ViewModeToggleButton");
@@ -2172,12 +2191,26 @@ public partial class MainWindow : Window
         }
 
         // Log a warning instead of failing out silently if file system check flags it
-        if (!File.Exists(localPath))
+        if (!File.Exists(localPath) && !Directory.Exists(localPath))
         {
-            Log($"System IO Warning: File.Exists returned false for path: '{localPath}'. Proceeding to hand off to native engine anyway.");
+            Log($"System IO Warning: File.Exists and Directory.Exists returned false for path: '{localPath}'. Proceeding to hand off to native engine anyway.");
         }
 
         PlayMediaFile(localPath);
+
+        if (_autoNavigateDirectoryOnDrop)
+        {
+            string? targetFolder = System.IO.Directory.Exists(localPath)
+                ? localPath
+                : System.IO.Path.GetDirectoryName(localPath);
+
+            if (!string.IsNullOrEmpty(targetFolder)
+                && System.IO.Directory.Exists(targetFolder)
+                && !string.Equals(targetFolder, _currentDirectoryPath, StringComparison.OrdinalIgnoreCase))
+            {
+                LoadDirectory(targetFolder);
+            }
+        }
     }
 
     private static void SendCommand(IntPtr mpvHandle, params string[] args)
@@ -2463,25 +2496,83 @@ public partial class MainWindow : Window
         {
             // Resolve controls based on Single or Deck layout
             var singleSpeedSlider = FindInTree<Slider>(content, "SingleSpeedSlider");
-            if (singleSpeedSlider != null)
+            if (singleSpeedSlider != null && _singleSpeedSlider != singleSpeedSlider)
             {
                 _singleSpeedSlider = singleSpeedSlider;
                 _singleSpeedValueText = FindInTree<TextBlock>(content, "SingleSpeedValueText");
                 _singleResetSpeedButton = FindInTree<Button>(content, "SingleResetSpeedButton");
                 _singlePresetPanel = FindInTree<StackPanel>(content, "SinglePresetPanel");
+                SetupSpeedSliderHandlers(singleSpeedSlider);
             }
 
             var deckSpeedSlider = FindInTree<Slider>(content, "DeckSpeedSlider");
-            if (deckSpeedSlider != null)
+            if (deckSpeedSlider != null && _deckSpeedSlider != deckSpeedSlider)
             {
                 _deckSpeedSlider = deckSpeedSlider;
                 _deckSpeedValueText = FindInTree<TextBlock>(content, "DeckSpeedValueText");
                 _deckResetSpeedButton = FindInTree<Button>(content, "DeckResetSpeedButton");
                 _deckPresetPanel = FindInTree<StackPanel>(content, "DeckPresetPanel");
+                SetupSpeedSliderHandlers(deckSpeedSlider);
             }
 
             // Immediately synchronize visual states without updating slider to prevent recursive triggering
             SetSpeed(_currentSpeed, updateControls: true);
+        }
+    }
+
+    private void SetupSpeedSliderHandlers(Slider slider)
+    {
+        slider.AddHandler(
+            InputElement.PointerPressedEvent,
+            (object? sender, PointerPressedEventArgs e) =>
+            {
+                _isUserDraggingSpeedSlider = true;
+                e.Pointer.Capture(slider);
+                UpdateSpeedFromSliderPoint(slider, e.GetCurrentPoint(slider));
+                e.Handled = true;
+            },
+            RoutingStrategies.Tunnel);
+
+        slider.AddHandler(
+            InputElement.PointerReleasedEvent,
+            (object? sender, PointerReleasedEventArgs e) =>
+            {
+                if (!_isUserDraggingSpeedSlider) return;
+                e.Pointer.Capture(null);
+                _isUserDraggingSpeedSlider = false;
+                e.Handled = true;
+            },
+            RoutingStrategies.Tunnel);
+
+        slider.AddHandler(
+            InputElement.PointerCaptureLostEvent,
+            (object? sender, PointerCaptureLostEventArgs e) =>
+            {
+                _isUserDraggingSpeedSlider = false;
+            },
+            RoutingStrategies.Tunnel);
+
+        slider.AddHandler(
+            InputElement.PointerMovedEvent,
+            (object? sender, PointerEventArgs e) =>
+            {
+                if (!_isUserDraggingSpeedSlider) return;
+                UpdateSpeedFromSliderPoint(slider, e.GetCurrentPoint(slider));
+                e.Handled = true;
+            },
+            RoutingStrategies.Tunnel);
+    }
+
+    private void UpdateSpeedFromSliderPoint(Slider slider, Avalonia.Input.PointerPoint point)
+    {
+        if (slider.Bounds.Width > 0)
+        {
+            double pct = point.Position.X / slider.Bounds.Width;
+            pct = Math.Max(0, Math.Min(1, pct));
+            double val = slider.Minimum + pct * (slider.Maximum - slider.Minimum);
+            double snapped = Math.Round(val / 0.05) * 0.05;
+            snapped = Math.Clamp(snapped, slider.Minimum, slider.Maximum);
+            slider.Value = snapped;
         }
     }
 
@@ -2993,6 +3084,9 @@ public partial class MainWindow : Window
         if (_directoryTabButton != null) _directoryTabButton.Click += (s, e) => SwitchTab("Directory");
         if (_engineTabButton != null) _engineTabButton.Click += (s, e) => SwitchTab("Engine");
         if (_upDirectoryButton != null) _upDirectoryButton.Click += (s, e) => NavigateUpDirectory();
+        if (_backButton != null) _backButton.Click += (s, e) => NavigateBack();
+        if (_forwardButton != null) _forwardButton.Click += (s, e) => NavigateForward();
+        if (_editDirectoryPathButton != null) _editDirectoryPathButton.Click += OnEditDirectoryPathButtonClicked;
         if (_viewModeToggleButton != null) _viewModeToggleButton.Click += (s, e) => ToggleViewMode();
 
         if (_directorySortComboBox != null)
@@ -3267,10 +3361,139 @@ public partial class MainWindow : Window
         }
     }
 
-    private void LoadDirectory(string path)
+    private void EnterPathEditMode()
+    {
+        if (_breadcrumbScrollViewer != null) _breadcrumbScrollViewer.IsVisible = false;
+        if (_directoryPathTextBox != null)
+        {
+            _directoryPathTextBox.IsVisible = true;
+            _directoryPathTextBox.Text = _currentDirectoryPath;
+            _directoryPathTextBox.Focus();
+            _directoryPathTextBox.SelectAll();
+        }
+    }
+
+    private void ExitPathEditMode()
+    {
+        if (_directoryPathTextBox != null) _directoryPathTextBox.IsVisible = false;
+        if (_breadcrumbScrollViewer != null) _breadcrumbScrollViewer.IsVisible = true;
+    }
+
+    private void OnEditDirectoryPathButtonClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_directoryPathTextBox != null && _directoryPathTextBox.IsVisible)
+        {
+            _directoryPathTextBox.Text = _currentDirectoryPath;
+            ExitPathEditMode();
+        }
+        else
+        {
+            EnterPathEditMode();
+        }
+    }
+
+    private void OnBreadcrumbAreaClicked(object? sender, PointerPressedEventArgs e)
+    {
+        if (e.Source == _breadcrumbPathContainer || e.Source == _breadcrumbScrollViewer || e.Source == _breadcrumbContainer)
+        {
+            if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            {
+                EnterPathEditMode();
+                e.Handled = true;
+            }
+        }
+    }
+
+    private void OnDirectoryPathTextBoxKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter || e.Key == Key.Return)
+        {
+            if (_directoryPathTextBox != null)
+            {
+                var typed = _directoryPathTextBox.Text?.Trim() ?? "";
+                if (System.IO.Directory.Exists(typed))
+                {
+                    LoadDirectory(typed);
+                    ExitPathEditMode();
+                }
+                else
+                {
+                    FlashInvalidPath();
+                }
+            }
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Escape)
+        {
+            if (_directoryPathTextBox != null) _directoryPathTextBox.Text = _currentDirectoryPath;
+            ExitPathEditMode();
+            e.Handled = true;
+        }
+    }
+
+    private void OnDirectoryPathTextBoxLostFocus(object? sender, RoutedEventArgs e)
+    {
+        var focusedElement = this.FocusManager?.GetFocusedElement();
+        if (focusedElement != null && (_editDirectoryPathButton == focusedElement || (focusedElement is Avalonia.Visual visual && visual.FindAncestorOfType<Button>() == _editDirectoryPathButton)))
+        {
+            return;
+        }
+
+        if (_directoryPathTextBox != null) _directoryPathTextBox.Text = _currentDirectoryPath;
+        ExitPathEditMode();
+    }
+
+    private async void FlashInvalidPath()
+    {
+        if (_directoryPathTextBox == null) return;
+        var original = _directoryPathTextBox.BorderBrush;
+        _directoryPathTextBox.BorderBrush = new SolidColorBrush(Color.Parse("#FF4D4D"));
+        await Task.Delay(300);
+        _directoryPathTextBox.BorderBrush = original;
+        _directoryPathTextBox.Focus();
+    }
+
+    private void NavigateBack()
+    {
+        if (_historyIndex <= 0) return;
+        _isNavigatingHistory = true;
+        _historyIndex--;
+        LoadDirectory(_directoryHistory[_historyIndex], recordHistory: false);
+        _isNavigatingHistory = false;
+        UpdateBackForwardButtonState();
+    }
+
+    private void NavigateForward()
+    {
+        if (_historyIndex >= _directoryHistory.Count - 1) return;
+        _isNavigatingHistory = true;
+        _historyIndex++;
+        LoadDirectory(_directoryHistory[_historyIndex], recordHistory: false);
+        _isNavigatingHistory = false;
+        UpdateBackForwardButtonState();
+    }
+
+    private void UpdateBackForwardButtonState()
+    {
+        if (_backButton != null) _backButton.IsEnabled = _historyIndex > 0;
+        if (_forwardButton != null) _forwardButton.IsEnabled = _historyIndex < _directoryHistory.Count - 1;
+    }
+
+    private void LoadDirectory(string path, bool recordHistory = true)
     {
         if (!Directory.Exists(path)) return;
         _currentDirectoryPath = path;
+
+        if (recordHistory && !_isNavigatingHistory)
+        {
+            if (_historyIndex < _directoryHistory.Count - 1)
+                _directoryHistory.RemoveRange(_historyIndex + 1, _directoryHistory.Count - _historyIndex - 1);
+
+            _directoryHistory.Add(path);
+            _historyIndex = _directoryHistory.Count - 1;
+        }
+
+        UpdateBackForwardButtonState();
 
         try
         {
@@ -4624,6 +4847,7 @@ public partial class MainWindow : Window
                     _disableOsdNotifications = settings.DisableOsdNotifications;
                     _disableSeekingPreviews = settings.DisableSeekingPreviews;
                     _directorySortMode = settings.DirectorySortMode;
+                    _autoNavigateDirectoryOnDrop = settings.AutoNavigateDirectoryOnDrop;
                 }
             }
         }
@@ -4660,7 +4884,8 @@ public partial class MainWindow : Window
                 DefaultWorkspaceTab = _defaultWorkspaceTab,
                 DisableOsdNotifications = _disableOsdNotifications,
                 DisableSeekingPreviews = _disableSeekingPreviews,
-                DirectorySortMode = _directorySortMode
+                DirectorySortMode = _directorySortMode,
+                AutoNavigateDirectoryOnDrop = _autoNavigateDirectoryOnDrop
             };
             string settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "settings.json");
             string json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
@@ -4714,6 +4939,7 @@ public partial class MainWindow : Window
         // Populate settings elements from fields
         if (_defaultBootDirTextBox != null) _defaultBootDirTextBox.Text = _defaultBootDirectoryPath;
         if (_rememberLastDirToggle != null) _rememberLastDirToggle.IsChecked = _rememberLastDirectoryPath;
+        if (_autoNavigateDirectoryOnDropToggle != null) _autoNavigateDirectoryOnDropToggle.IsChecked = _autoNavigateDirectoryOnDrop;
         if (_allowMultipleInstancesToggle != null) _allowMultipleInstancesToggle.IsChecked = _allowMultipleInstances;
         if (_disableHdrPeakToggle != null) _disableHdrPeakToggle.IsChecked = _disableHdrPeak;
         if (_hardwareAccelerationToggle != null) _hardwareAccelerationToggle.IsChecked = !_forceSoftwareDecoding;
@@ -4760,6 +4986,7 @@ public partial class MainWindow : Window
         // Retrieve settings elements to fields
         if (_defaultBootDirTextBox != null) _defaultBootDirectoryPath = _defaultBootDirTextBox.Text ?? "";
         if (_rememberLastDirToggle != null) _rememberLastDirectoryPath = _rememberLastDirToggle.IsChecked ?? true;
+        if (_autoNavigateDirectoryOnDropToggle != null) _autoNavigateDirectoryOnDrop = _autoNavigateDirectoryOnDropToggle.IsChecked ?? true;
         if (_allowMultipleInstancesToggle != null) _allowMultipleInstances = _allowMultipleInstancesToggle.IsChecked ?? false;
         
         if (_disableHdrPeakToggle != null) _disableHdrPeak = _disableHdrPeakToggle.IsChecked ?? false;
@@ -4861,6 +5088,7 @@ public partial class MainWindow : Window
         _defaultBootDirTextBox = this.FindControl<TextBox>("DefaultBootDirTextBox");
         _browseBootDirButton = this.FindControl<Button>("BrowseBootDirButton");
         _rememberLastDirToggle = this.FindControl<ToggleSwitch>("RememberLastDirToggle");
+        _autoNavigateDirectoryOnDropToggle = this.FindControl<ToggleSwitch>("AutoNavigateDirectoryOnDropToggle");
         _allowMultipleInstancesToggle = this.FindControl<ToggleSwitch>("AllowMultipleInstancesToggle");
         
         _disableHdrPeakToggle = this.FindControl<ToggleSwitch>("DisableHdrPeakToggle");
@@ -5140,4 +5368,5 @@ public class UserSettings
     public bool DisableOsdNotifications { get; set; } = false;
     public bool DisableSeekingPreviews { get; set; } = false;
     public int DirectorySortMode { get; set; } = 0;
+    public bool AutoNavigateDirectoryOnDrop { get; set; } = true;
 }

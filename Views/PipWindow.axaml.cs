@@ -130,6 +130,20 @@ public partial class PipWindow : Window
             RoutingStrategies.Tunnel);
     }
 
+    private void UnsubclassWindow()
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && _subclassProc != null)
+        {
+            var handle = this.TryGetPlatformHandle();
+            if (handle != null && handle.Handle != IntPtr.Zero)
+            {
+                PipLogger.Log($"PipWindow: Unsubclassing hWnd = {handle.Handle}");
+                RemoveWindowSubclass(handle.Handle, _subclassProc, (IntPtr)1);
+                _subclassProc = null;
+            }
+        }
+    }
+
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
@@ -138,9 +152,11 @@ public partial class PipWindow : Window
             var handle = this.TryGetPlatformHandle();
             if (handle != null && handle.Handle != IntPtr.Zero)
             {
+                UnsubclassWindow();
                 PipLogger.Log($"PipWindow: OnOpened - Subclassing hWnd = {handle.Handle}");
                 _subclassProc = WndProcSubclass;
                 SetWindowSubclass(handle.Handle, _subclassProc, (IntPtr)1, IntPtr.Zero);
+                PipVideoSurface.EnsureOverlayVisible();
             }
         }
     }
@@ -184,7 +200,8 @@ public partial class PipWindow : Window
                 }
 
                 Marshal.StructureToPtr(rect, lParam, false);
-                return IntPtr.Zero; // Sizing processed
+                DefSubclassProc(hWnd, uMsg, wParam, lParam);
+                return (IntPtr)1; // Sizing processed
             }
             catch (Exception ex)
             {
@@ -235,27 +252,20 @@ public partial class PipWindow : Window
     {
         if (IsShuttingDown)
         {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && _subclassProc != null)
-            {
-                var handle = this.TryGetPlatformHandle();
-                if (handle != null && handle.Handle != IntPtr.Zero)
-                {
-                    PipLogger.Log($"PipWindow: OnClosing (Shutdown) - Unsubclassing hWnd = {handle.Handle}");
-                    RemoveWindowSubclass(handle.Handle, _subclassProc, (IntPtr)1);
-                    _subclassProc = null;
-                }
-            }
+            UnsubclassWindow();
             base.OnClosing(e);
             return;
         }
 
         e.Cancel = true;
+        UnsubclassWindow();
         TriggerRedock();
     }
 
     private void TriggerRedock()
     {
         RedockRequested?.Invoke(this, EventArgs.Empty);
+        PipVideoSurface.HideOverlay();
         this.Hide();
     }
 
