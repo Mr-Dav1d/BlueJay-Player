@@ -452,6 +452,7 @@ public partial class MainWindow : Window
         {
             _customTitleBar.PointerPressed += (s, e) =>
             {
+                if (this.WindowState == WindowState.FullScreen) return;
                 if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
                 {
                     if (e.ClickCount == 2)
@@ -1563,6 +1564,25 @@ public partial class MainWindow : Window
                         flyout.Items.Add(item);
                     }
                 }
+
+                // Populate Subtitle Track ComboBoxes in Flyouts
+                var comboItems = new System.Collections.Generic.List<SubTrackItem>();
+                comboItems.Add(new SubTrackItem { Id = -1, DisplayName = "Off (Disable Subtitles)" });
+                SubTrackItem? selectedComboItem = comboItems[0];
+
+                foreach (var track in subTracks)
+                {
+                    string label = $"Track {track.id}";
+                    if (!string.IsNullOrEmpty(track.title)) label += $" - {track.title}";
+                    if (!string.IsNullOrEmpty(track.lang)) label += $" [{track.lang}]";
+
+                    var comboItem = new SubTrackItem { Id = track.id, DisplayName = label };
+                    comboItems.Add(comboItem);
+                    if (track.selected) selectedComboItem = comboItem;
+                }
+
+                UpdateSubComboBox(this.FindControl<ComboBox>("SingleSubTrackComboBox"), comboItems, selectedComboItem);
+                UpdateSubComboBox(this.FindControl<ComboBox>("DeckSubTrackComboBox"), comboItems, selectedComboItem);
             });
         }
         catch (Exception ex)
@@ -1701,25 +1721,35 @@ public partial class MainWindow : Window
         });
     }
 
+    private Border? _titleBarContainer;
+    private WindowState _previousWindowState = WindowState.Normal;
+
     private void ToggleFullscreen()
     {
+        if (_titleBarContainer == null)
+            _titleBarContainer = this.FindControl<Border>("TitleBarContainer");
+
         if (this.WindowState == WindowState.FullScreen)
         {
-            this.WindowState = WindowState.Normal;
+            this.WindowState = _previousWindowState;
+            if (_titleBarContainer != null) _titleBarContainer.IsVisible = true;
             if (_customTitleBar != null) _customTitleBar.IsVisible = true;
             if (_mainRootGrid != null)
                 _mainRootGrid.RowDefinitions = new RowDefinitions("32,*");
             if (_rootBorder != null)
             {
-                _rootBorder.CornerRadius = new Avalonia.CornerRadius(8);
-                _rootBorder.BorderThickness = new Thickness(1);
+                bool isMax = _previousWindowState == WindowState.Maximized;
+                _rootBorder.CornerRadius = new Avalonia.CornerRadius(isMax ? 0 : 8);
+                _rootBorder.BorderThickness = new Thickness(isMax ? 0 : 1);
             }
             Log("Exited Fullscreen Mode: UI Frame Chrome Layout restored.");
             _videoSurface?.SyncOverlayGeometry();
         }
         else
         {
+            _previousWindowState = this.WindowState;
             this.WindowState = WindowState.FullScreen;
+            if (_titleBarContainer != null) _titleBarContainer.IsVisible = false;
             if (_customTitleBar != null) _customTitleBar.IsVisible = false;
             if (_mainRootGrid != null)
                 _mainRootGrid.RowDefinitions = new RowDefinitions("0,*");
@@ -1896,6 +1926,17 @@ public partial class MainWindow : Window
         });
     }
 
+    private static bool IsStreamUrl(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return false;
+        string trimmed = input.Trim();
+        return trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+               trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
+               trimmed.StartsWith("stremio://", StringComparison.OrdinalIgnoreCase) ||
+               trimmed.StartsWith("rtmp://", StringComparison.OrdinalIgnoreCase) ||
+               trimmed.StartsWith("rtsp://", StringComparison.OrdinalIgnoreCase);
+    }
+
     private void PlayMediaFile(string filePath)
     {
         _currentLoadedFilePath = filePath;
@@ -1906,14 +1947,19 @@ public partial class MainWindow : Window
             return;
         }
 
-        string ext = Path.GetExtension(filePath);
-        if (!IsSupportedMediaFile(ext))
+        bool isStream = IsStreamUrl(filePath);
+        string ext = isStream ? "" : Path.GetExtension(filePath);
+
+        if (!isStream)
         {
-            Log($"PlayMediaFile blocked — unsupported media file format: '{ext}' for file '{filePath}'");
-            return;
+            if (!IsSupportedMediaFile(ext))
+            {
+                Log($"PlayMediaFile blocked — unsupported media file format: '{ext}' for file '{filePath}'");
+                return;
+            }
         }
 
-        bool isAudio = IsAudioFile(ext);
+        bool isAudio = !isStream && IsAudioFile(ext);
 
         // Reset seek bar tracking variables immediately when loading a new file
         _playbackPosition = 0;
@@ -2009,13 +2055,23 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+        if (!_isEngineInitialized || _mpvHandle == IntPtr.Zero) return;
+
+        // Ctrl + V: Paste & Stream from Clipboard
+        if (e.Key == Key.V && e.KeyModifiers.HasFlag(KeyModifiers.Control))
         {
-            e.Handled = false;
+            e.Handled = true;
+            _ = HandleClipboardPasteUrlAsync();
             return;
         }
 
-        if (!_isEngineInitialized || _mpvHandle == IntPtr.Zero) return;
+        // Ctrl+S Smart Anchor & Loop Sync Tool shortcut
+        if (e.Key == Key.S && e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        {
+            e.Handled = true;
+            TriggerOsdHUD("🎯", "Smart Anchor & Loop Sync (Phase 2)");
+            return;
+        }
 
         // Hardware Media Keys Integration
         if (e.Key == Key.MediaPlayPause)
@@ -2083,13 +2139,15 @@ public partial class MainWindow : Window
         if (e.Key == Key.Z)
         {
             e.Handled = true;
-            AdjustSubDelay(-0.1);
+            bool isShift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+            AdjustSubDelay(isShift ? -0.5 : -0.1);
             return;
         }
         if (e.Key == Key.X)
         {
             e.Handled = true;
-            AdjustSubDelay(0.1);
+            bool isShift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+            AdjustSubDelay(isShift ? 0.5 : 0.1);
             return;
         }
 
@@ -2166,6 +2224,17 @@ public partial class MainWindow : Window
     {
         Log("Triggering drag-and-drop file payload evaluation process...");
         e.Handled = true;
+
+        if (e.Data.Contains(DataFormats.Text))
+        {
+            var text = e.Data.GetText();
+            if (IsStreamUrl(text))
+            {
+                TriggerOsdHUD("🌐", "Streaming Link...");
+                PlayMediaFile(text!.Trim());
+                return;
+            }
+        }
 
         var files = e.DataTransfer.TryGetFiles();
         if (files == null)
@@ -2609,24 +2678,179 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
+    private double _currentSubDelay = 0.0;
+    private bool _isPopulatingSubComboBox = false;
+
+    public class SubTrackItem
+    {
+        public int Id { get; set; }
+        public string DisplayName { get; set; } = "";
+        public override string ToString() => DisplayName;
+    }
+
     private void AdjustSubDelay(double delta, bool reset = false)
     {
         if (_mpvHandle == IntPtr.Zero || !_isEngineInitialized) return;
 
         double currentDelay = 0;
         string? delayStr = GetMpvPropertyString("sub-delay");
-        if (double.TryParse(delayStr, out double val))
+        if (double.TryParse(delayStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double val))
         {
             currentDelay = val;
         }
 
         double newDelay = reset ? 0 : currentDelay + delta;
+        newDelay = Math.Round(newDelay, 2);
+        _currentSubDelay = newDelay;
         SetMpvPropertyDouble(_mpvHandle, "sub-delay", newDelay);
 
         int ms = (int)Math.Round(newDelay * 1000);
-        string direction = ms >= 0 ? "+" : "";
-        TriggerOsdHUD("⏱", $"Sub Delay: {direction}{ms}ms");
+        string sign = ms > 0 ? "+" : "";
+        string delayDisplay = ms == 0 ? "0.00s" : $"{newDelay:+0.00;-0.00;0.00}s ({sign}{ms}ms)";
+        TriggerOsdHUD("💬", $"Sub Delay: {delayDisplay}");
+        UpdateSubDelayFlyoutUI(newDelay);
         Log($"Subtitle delay adjusted: {newDelay:F2}s");
+    }
+
+    private void UpdateSubDelayFlyoutUI(double delay)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            int ms = (int)Math.Round(delay * 1000);
+            string sign = ms > 0 ? "+" : "";
+            string formattedText = ms == 0 ? "0.00s" : $"{delay:+0.00;-0.00;0.00}s ({sign}{ms}ms)";
+
+            var singleDelayText = this.FindControl<TextBlock>("SingleSubDelayValueText");
+            if (singleDelayText != null) singleDelayText.Text = formattedText;
+
+            var deckDelayText = this.FindControl<TextBlock>("DeckSubDelayValueText");
+            if (deckDelayText != null) deckDelayText.Text = formattedText;
+        });
+    }
+
+    private void SubFlyout_Opened(object? sender, EventArgs e)
+    {
+        if (_mpvHandle != IntPtr.Zero && _isEngineInitialized)
+        {
+            string? delayStr = GetMpvPropertyString("sub-delay");
+            if (double.TryParse(delayStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double val))
+            {
+                _currentSubDelay = val;
+                UpdateSubDelayFlyoutUI(val);
+            }
+            PopulateSubtitleTracks();
+        }
+    }
+
+    private void SubDelayStepper_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is string tagStr)
+        {
+            if (tagStr == "0")
+            {
+                AdjustSubDelay(0, reset: true);
+            }
+            else if (double.TryParse(tagStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double delta))
+            {
+                AdjustSubDelay(delta);
+            }
+        }
+    }
+
+    private void SubTrackComboBox_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_isPopulatingSubComboBox) return;
+        if (sender is ComboBox cb && cb.SelectedItem is SubTrackItem item)
+        {
+            SelectSubtitleTrack(item.Id);
+        }
+    }
+
+    private async void AddExternalSub_Click(object? sender, RoutedEventArgs e)
+    {
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel != null)
+        {
+            var options = new FilePickerOpenOptions
+            {
+                Title = "Select Subtitle File",
+                AllowMultiple = false,
+                FileTypeFilter = new[]
+                {
+                    new FilePickerFileType("Subtitle Files")
+                    {
+                        Patterns = new[] { "*.srt", "*.vtt", "*.ass", "*.sub", "*.ssa" }
+                    }
+                }
+            };
+
+            string? targetFolder = null;
+            if (!string.IsNullOrEmpty(_currentLoadedFilePath))
+            {
+                try
+                {
+                    targetFolder = System.IO.Path.GetDirectoryName(_currentLoadedFilePath);
+                }
+                catch { }
+            }
+            if ((string.IsNullOrEmpty(targetFolder) || !Directory.Exists(targetFolder)) && !string.IsNullOrEmpty(_currentDirectoryPath))
+            {
+                targetFolder = _currentDirectoryPath;
+            }
+
+            if (!string.IsNullOrEmpty(targetFolder) && Directory.Exists(targetFolder))
+            {
+                options.SuggestedStartLocation = await topLevel.StorageProvider.TryGetFolderFromPathAsync(targetFolder);
+            }
+
+            var files = await topLevel.StorageProvider.OpenFilePickerAsync(options);
+
+            if (files != null && files.Count > 0)
+            {
+                var localPath = files[0].Path.LocalPath;
+                if (!string.IsNullOrEmpty(localPath))
+                {
+                    SendCommand(_mpvHandle, "sub-add", localPath);
+                    TriggerOsdHUD("💬", "External Sub Added");
+                    Log($"Injected external subtitle file: {localPath}");
+                    PopulateSubtitleTracks();
+                }
+            }
+        }
+    }
+
+
+    private void UpdateSubComboBox(ComboBox? comboBox, System.Collections.Generic.List<SubTrackItem> items, SubTrackItem? selectedItem)
+    {
+        if (comboBox == null) return;
+        _isPopulatingSubComboBox = true;
+        try
+        {
+            comboBox.ItemsSource = items;
+            comboBox.SelectedItem = selectedItem;
+        }
+        finally
+        {
+            _isPopulatingSubComboBox = false;
+        }
+    }
+
+    private async Task HandleClipboardPasteUrlAsync()
+    {
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel?.Clipboard != null)
+        {
+            var text = await topLevel.Clipboard.GetTextAsync();
+            if (IsStreamUrl(text))
+            {
+                TriggerOsdHUD("🌐", "Opening Stream Link...");
+                PlayMediaFile(text!.Trim());
+            }
+            else
+            {
+                TriggerOsdHUD("⚠️", "No valid stream URL in clipboard");
+            }
+        }
     }
 
     private MenuItem CreateSizeItem(string header, double scale)

@@ -551,5 +551,56 @@
         <Style Selector="Button.speed-reset-link:pointerover TextBlock">
             <Setter Property="TextDecorations" Value="Underline"/>
         </Style>
+
+        <!-- Subtitle Stepper Capsule Buttons -->
+        <Style Selector="Button.sub-stepper">
+            <Setter Property="Background" Value="#20222A"/>
+            <Setter Property="BorderBrush" Value="#2A2D3A"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="Foreground" Value="#8A92AD"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.sub-stepper /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#20222A"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#2A2D3A"/>
+        </Style>
+        <Style Selector="Button.sub-stepper:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#2A2E3D"/>
+            <Setter Property="BorderBrush" Value="#3B9EFF"/>
+            <Setter Property="Foreground" Value="#3B9EFF"/>
+        </Style>
+        <Style Selector="Button.sub-stepper.active /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#1A3B9EFF"/>
+            <Setter Property="BorderBrush" Value="#3B9EFF"/>
+            <Setter Property="Foreground" Value="#3B9EFF"/>
+        </Style>
+
+        <!-- Subtitle Smart Anchor Tool Placeholder Button -->
+        <Style Selector="Button.sub-anchor">
+            <Setter Property="Background" Value="#1A202C"/>
+            <Setter Property="BorderBrush" Value="#3B9EFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="Foreground" Value="#3B9EFF"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.sub-anchor /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#1A202C"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#3B9EFF"/>
+        </Style>
+        <Style Selector="Button.sub-anchor:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#253046"/>
+            <Setter Property="BorderBrush" Value="#50ACFF"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+        </Style>
     </Application.Styles>
 </Application>

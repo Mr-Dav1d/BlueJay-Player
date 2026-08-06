@@ -78,7 +78,7 @@
     <Border Name="RootBorder" CornerRadius="8" ClipToBounds="True" Background="#0C0C12" BorderBrush="#1F222F" BorderThickness="1" DragDrop.AllowDrop="True">
         <Grid Name="MainRootGrid" RowDefinitions="32,*" ColumnDefinitions="*,Auto" Background="Transparent" DragDrop.AllowDrop="True">
 
-            <Border Grid.Row="0" Grid.ColumnSpan="2" Height="32" Background="#09090D" BorderBrush="#14141A" BorderThickness="0,0,0,0.5">
+            <Border Name="TitleBarContainer" Grid.Row="0" Grid.ColumnSpan="2" Height="32" Background="#09090D" BorderBrush="#14141A" BorderThickness="0,0,0,0.5">
                 <Grid Name="CustomTitleBar" Height="32" ColumnDefinitions="*,Auto" Background="Transparent">
                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0" IsHitTestVisible="False">
                         <Ellipse Width="5" Height="5" Fill="#2B88FF" Opacity="0.8" Margin="0,0,8,0" VerticalAlignment="Center"/>
@@ -284,21 +284,69 @@
                                     <Slider Grid.Column="4" Name="SingleVolumeSlider" Classes="volume-mini" Width="56" Margin="4,0,12,0" VerticalAlignment="Center" Focusable="False"/>
                                     
                                     <!-- Media Group -->
-                                    <Button Grid.Column="5" Name="SingleAudioButton" Classes="transport-btn" ToolTip.Tip="Audio Tracks">
+                                    <Button Grid.Column="5" Name="SingleAudioButton" Classes="transport-btn" ToolTip.Tip="Audio Tracks &amp; Passthrough">
                                         <PathIcon Data="M12 2c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7c0-4.97-4.03-9-9-9z" Width="12" Height="12"/>
                                         <Button.Flyout>
                                             <MenuFlyout/>
                                         </Button.Flyout>
                                     </Button>
-                                    <Button Grid.Column="6" Name="SingleSubtitleButton" Classes="transport-btn" ToolTip.Tip="Subtitles">
+                                    <Button Grid.Column="6" Name="SingleSubtitleButton" Classes="transport-btn" ToolTip.Tip="Subtitle Settings &amp; Tracks (Shortcuts: Z / X / Shift+Z / Shift+X)">
                                         <PathIcon Data="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2z" Width="12" Height="12"/>
                                         <Button.Flyout>
-                                            <MenuFlyout/>
+                                            <Flyout Placement="Bottom" ShowMode="Standard" Opened="SubFlyout_Opened">
+                                                <Border Background="#161618" CornerRadius="8" BorderBrush="#2A2D3A" BorderThickness="1" Padding="14" Width="280" BoxShadow="0 8 24 0 #40000000">
+                                                    <StackPanel Spacing="10">
+                                                        <TextBlock Text="SUBTITLE SYNC &amp; TRACKS" FontSize="11" FontWeight="SemiBold"
+                                                                   Foreground="#8A8F9C" HorizontalAlignment="Center"/>
+
+                                                        <!-- Delay Text -->
+                                                        <TextBlock Name="SingleSubDelayValueText" Text="0.00s" FontSize="26" FontWeight="Bold"
+                                                                   Foreground="#3B9EFF" HorizontalAlignment="Center" Margin="0,2"/>
+
+                                                        <!-- Quick Stepper Buttons -->
+                                                        <Grid ColumnDefinitions="*,*,*,*,*">
+                                                            <Button Grid.Column="0" Classes="sub-stepper" Content="-0.5s" Tag="-0.5" Click="SubDelayStepper_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                                                            <Button Grid.Column="1" Classes="sub-stepper" Content="-0.1s" Tag="-0.1" Click="SubDelayStepper_Click" Margin="3,0,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                                                            <Button Grid.Column="2" Classes="sub-stepper active" Content="Reset" Tag="0" Click="SubDelayStepper_Click" Margin="3,0,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                                                            <Button Grid.Column="3" Classes="sub-stepper" Content="+0.1s" Tag="0.1" Click="SubDelayStepper_Click" Margin="3,0,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                                                            <Button Grid.Column="4" Classes="sub-stepper" Content="+0.5s" Tag="0.5" Click="SubDelayStepper_Click" Margin="3,0,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                                                        </Grid>
+
+                                                        <Rectangle Fill="#2A2D3A" Height="1" Margin="0,2"/>
+
+                                                        <!-- Subtitle Track Dropdown -->
+                                                        <TextBlock Text="Subtitle Track" FontSize="11" FontWeight="SemiBold" Foreground="#8A8F9C"/>
+                                                        <ComboBox Name="SingleSubTrackComboBox" HorizontalAlignment="Stretch" SelectionChanged="SubTrackComboBox_SelectionChanged" Background="#20222A" BorderBrush="#2A2D3A" Foreground="#FFFFFF" FontSize="12">
+                                                        </ComboBox>
+
+                                                        <!-- Add External Subtitle Button -->
+                                                        <Button Name="SingleAddExternalSubButton" Content="+ Add External Subtitle File..." Click="AddExternalSub_Click"
+                                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="Transparent" Foreground="#3B9EFF" BorderThickness="0" Cursor="Hand" FontSize="11"/>
+
+                                                        <!-- Subtitle Hotkey Guide Footer -->
+                                                        <Border Background="#111112" CornerRadius="6" Padding="10" Margin="0,4,0,0" BorderBrush="#222224" BorderThickness="1">
+                                                            <StackPanel Spacing="6">
+                                                                <TextBlock Text="⌨ QUICK SHORTCUTS" Foreground="#66666B" FontSize="10" FontWeight="Bold"/>
+                                                                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
+                                                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Shift Subtitle (±0.1s)" Foreground="#88888D" FontSize="11"/>
+                                                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="Z / X" Foreground="#3B9EFF" FontSize="11" FontWeight="SemiBold" Margin="8,0,0,0"/>
+                                                                    
+                                                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Jump Subtitle (±0.5s)" Foreground="#88888D" FontSize="11" Margin="0,3,0,0"/>
+                                                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="Shift + Z / X" Foreground="#3B9EFF" FontSize="11" FontWeight="SemiBold" Margin="8,3,0,0"/>
+
+                                                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Paste Stream Link" Foreground="#88888D" FontSize="11" Margin="0,3,0,0"/>
+                                                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="Ctrl + V" Foreground="#3B9EFF" FontSize="11" FontWeight="SemiBold" Margin="8,3,0,0"/>
+                                                                </Grid>
+                                                            </StackPanel>
+                                                        </Border>
+                                                    </StackPanel>
+                                                </Border>
+                                            </Flyout>
                                         </Button.Flyout>
                                     </Button>
 
                                     <!-- Speed Button -->
-                                    <Button Grid.Column="7" Name="SingleSpeedButton" Content="1.00x" Classes="control-button transport-btn" ToolTip.Tip="Playback Speed ( [ / ] )" PointerWheelChanged="TransportSpeedLabel_PointerWheelChanged" Padding="8,0" FontSize="11" FontFamily="Consolas">
+                                    <Button Grid.Column="7" Name="SingleSpeedButton" Content="1.00x" Classes="control-button transport-btn" ToolTip.Tip="Playback Speed Controls (Shortcuts: [ / ] / \)" PointerWheelChanged="TransportSpeedLabel_PointerWheelChanged" Padding="8,0" FontSize="11" FontFamily="Consolas">
                                         <Button.Flyout>
                                             <Flyout Placement="Bottom" ShowMode="Standard" Opened="SpeedFlyout_Opened">
                                                 <Border Background="#E60C0C12" CornerRadius="8" BorderBrush="#1F222F" BorderThickness="1" Padding="14" Width="260" BoxShadow="0 8 24 0 #40000000">
@@ -400,21 +448,69 @@
 
                                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
                                             <!-- Media Group -->
-                                            <Button Name="DeckAudioButton" Classes="transport-btn" ToolTip.Tip="Audio Tracks">
+                                            <Button Name="DeckAudioButton" Classes="transport-btn" ToolTip.Tip="Audio Tracks &amp; Passthrough">
                                                 <PathIcon Data="M12 2c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7c0-4.97-4.03-9-9-9z" Width="12" Height="12"/>
                                                 <Button.Flyout>
                                                     <MenuFlyout/>
                                                 </Button.Flyout>
                                             </Button>
-                                            <Button Name="DeckSubtitleButton" Classes="transport-btn" ToolTip.Tip="Subtitles">
+                                            <Button Name="DeckSubtitleButton" Classes="transport-btn" ToolTip.Tip="Subtitle Settings &amp; Tracks (Shortcuts: Z / X / Shift+Z / Shift+X)">
                                                 <PathIcon Data="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2z" Width="12" Height="12"/>
                                                 <Button.Flyout>
-                                                    <MenuFlyout/>
+                                                    <Flyout Placement="Bottom" ShowMode="Standard" Opened="SubFlyout_Opened">
+                                                        <Border Background="#161618" CornerRadius="8" BorderBrush="#2A2D3A" BorderThickness="1" Padding="14" Width="280" BoxShadow="0 8 24 0 #40000000">
+                                                            <StackPanel Spacing="10">
+                                                                <TextBlock Text="SUBTITLE SYNC &amp; TRACKS" FontSize="11" FontWeight="SemiBold"
+                                                                           Foreground="#8A8F9C" HorizontalAlignment="Center"/>
+
+                                                                <!-- Delay Text -->
+                                                                <TextBlock Name="DeckSubDelayValueText" Text="0.00s" FontSize="26" FontWeight="Bold"
+                                                                           Foreground="#3B9EFF" HorizontalAlignment="Center" Margin="0,2"/>
+
+                                                                <!-- Quick Stepper Buttons -->
+                                                                <Grid ColumnDefinitions="*,*,*,*,*">
+                                                                    <Button Grid.Column="0" Classes="sub-stepper" Content="-0.5s" Tag="-0.5" Click="SubDelayStepper_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                                                                    <Button Grid.Column="1" Classes="sub-stepper" Content="-0.1s" Tag="-0.1" Click="SubDelayStepper_Click" Margin="3,0,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                                                                    <Button Grid.Column="2" Classes="sub-stepper active" Content="Reset" Tag="0" Click="SubDelayStepper_Click" Margin="3,0,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                                                                    <Button Grid.Column="3" Classes="sub-stepper" Content="+0.1s" Tag="0.1" Click="SubDelayStepper_Click" Margin="3,0,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                                                                    <Button Grid.Column="4" Classes="sub-stepper" Content="+0.5s" Tag="0.5" Click="SubDelayStepper_Click" Margin="3,0,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                                                                </Grid>
+
+                                                                <Rectangle Fill="#2A2D3A" Height="1" Margin="0,2"/>
+
+                                                                <!-- Subtitle Track Dropdown -->
+                                                                <TextBlock Text="Subtitle Track" FontSize="11" FontWeight="SemiBold" Foreground="#8A8F9C"/>
+                                                                <ComboBox Name="DeckSubTrackComboBox" HorizontalAlignment="Stretch" SelectionChanged="SubTrackComboBox_SelectionChanged" Background="#20222A" BorderBrush="#2A2D3A" Foreground="#FFFFFF" FontSize="12">
+                                                                </ComboBox>
+
+                                                                <!-- Add External Subtitle Button -->
+                                                                <Button Name="DeckAddExternalSubButton" Content="+ Add External Subtitle File..." Click="AddExternalSub_Click"
+                                                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="Transparent" Foreground="#3B9EFF" BorderThickness="0" Cursor="Hand" FontSize="11"/>
+
+                                                                <!-- Subtitle Hotkey Guide Footer -->
+                                                                <Border Background="#111112" CornerRadius="6" Padding="10" Margin="0,4,0,0" BorderBrush="#222224" BorderThickness="1">
+                                                                    <StackPanel Spacing="6">
+                                                                        <TextBlock Text="⌨ QUICK SHORTCUTS" Foreground="#66666B" FontSize="10" FontWeight="Bold"/>
+                                                                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
+                                                                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Shift Subtitle (±0.1s)" Foreground="#88888D" FontSize="11"/>
+                                                                            <TextBlock Grid.Row="0" Grid.Column="1" Text="Z / X" Foreground="#3B9EFF" FontSize="11" FontWeight="SemiBold" Margin="8,0,0,0"/>
+                                                                            
+                                                                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Jump Subtitle (±0.5s)" Foreground="#88888D" FontSize="11" Margin="0,3,0,0"/>
+                                                                            <TextBlock Grid.Row="1" Grid.Column="1" Text="Shift + Z / X" Foreground="#3B9EFF" FontSize="11" FontWeight="SemiBold" Margin="8,3,0,0"/>
+
+                                                                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Paste Stream Link" Foreground="#88888D" FontSize="11" Margin="0,3,0,0"/>
+                                                                            <TextBlock Grid.Row="2" Grid.Column="1" Text="Ctrl + V" Foreground="#3B9EFF" FontSize="11" FontWeight="SemiBold" Margin="8,3,0,0"/>
+                                                                        </Grid>
+                                                                    </StackPanel>
+                                                                </Border>
+                                                            </StackPanel>
+                                                        </Border>
+                                                    </Flyout>
                                                 </Button.Flyout>
                                             </Button>
                                             
                                             <!-- Speed Button -->
-                                            <Button Name="DeckSpeedButton" Content="1.00x" Classes="control-button transport-btn" ToolTip.Tip="Playback Speed ( [ / ] )" PointerWheelChanged="TransportSpeedLabel_PointerWheelChanged" Padding="8,0" FontSize="11" FontFamily="Consolas">
+                                            <Button Name="DeckSpeedButton" Content="1.00x" Classes="control-button transport-btn" ToolTip.Tip="Playback Speed Controls (Shortcuts: [ / ] / \)" PointerWheelChanged="TransportSpeedLabel_PointerWheelChanged" Padding="8,0" FontSize="11" FontFamily="Consolas">
                                                 <Button.Flyout>
                                                     <Flyout Placement="Bottom" ShowMode="Standard" Opened="SpeedFlyout_Opened">
                                                         <Border Background="#E60C0C12" CornerRadius="8" BorderBrush="#1F222F" BorderThickness="1" Padding="14" Width="260" BoxShadow="0 8 24 0 #40000000">
@@ -1231,6 +1327,8 @@
                     </Carousel>
                 </Grid>
             </Grid>
+
+            <!-- Removed OpenUrlModal Overlay -->
 
             <Grid Grid.Row="0" Grid.RowSpan="2" Grid.ColumnSpan="2" Name="ResizeGrid" ColumnDefinitions="6,*,6" RowDefinitions="6,*,6" IsHitTestVisible="True">
                 <Border Grid.Row="0" Grid.Column="0" Background="Transparent" Cursor="TopLeftCorner" Tag="NorthWest" PointerPressed="OnResizePointerPressed"/>

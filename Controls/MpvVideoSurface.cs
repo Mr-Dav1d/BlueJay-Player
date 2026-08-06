@@ -244,8 +244,10 @@ public class MpvVideoSurface : NativeControlHost
                         }
                     }
                 }
-
-                _parentWindow?.BeginMoveDrag(pressedEvt);
+                if (_parentWindow != null && _parentWindow.WindowState != WindowState.FullScreen)
+                {
+                    _parentWindow.BeginMoveDrag(pressedEvt);
+                }
             }
         }
     }
